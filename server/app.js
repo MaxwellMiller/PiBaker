@@ -4,7 +4,8 @@ var express = require('express'),
     exec = require('child_process').exec,
     spawn = require('child_process').spawn,
     ws = require('ws'),
-    http = require('http');
+    http = require('http'),
+    request = require('request');
 
 // Populate with default settings
 // If a config file exists, it will override these
@@ -128,7 +129,14 @@ app.route('/modelupload')
 
                         // If the process terminated properly, forward
                         if (error != null) {
-                            // TODO: Forward model to client
+                            // TODO: Test this
+                            var formData = {
+                                file: fs.createReadStream(__dirname + '/models/' + filenameR + '.gcode')
+                            }
+
+                            request.post({url: clientip, formData: formData}, function(err, res, body) {
+                                console.log('G-code sent to ' + clientip);
+                            });
                         }
                     });
                     res.redirect('back');
