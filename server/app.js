@@ -1,8 +1,10 @@
-var express = require('express');
-var busboy = require('connect-busboy');
-var fs = require('fs-extra');
-var exec = require('child_process').exec;
-var spawn = require('child_process').spawn;
+var express = require('express'),
+    busboy = require('connect-busboy'),
+    fs = require('fs-extra'),
+    exec = require('child_process').exec,
+    spawn = require('child_process').spawn,
+    ws = require('ws'),
+    http = require('http');
 
 // Populate with default settings
 // If a config file exists, it will override these
@@ -84,20 +86,21 @@ app.route('/modelupload')
         var fstream;
         req.pipe(req.busboy);
 
-        req.busboy.on('file', function (fieldname, file, filename) {
+        var clientip = "ws://localhost:8080";
 
+        req.busboy.on('file', function (fieldname, file, filename) {
             var typeCheck = 0;
 
             // Can only upload models to the intermediate server, not to the client
             if (settings["is_server"] === "true") {
                 for (var format in validModelFormats) {
-                    if (filename.indexOf("." + format, this.length - (format.length + 1)) == -1) {
+                    if (filename.indexOf("." + format, this.length - (format.length + 1)) != -1) {
                         typeCheck = 1;
                     }
                 }
             }
 
-            if (filename.indexOf(".gcode", this.length - ".gcode".length) == -1) {
+            if (filename.indexOf(".gcode", this.length - ".gcode".length) != -1) {
                 typeCheck = 2;
             }
 
@@ -116,14 +119,40 @@ app.route('/modelupload')
 
             // If the file is a 3D model, slice it
             if (typeCheck == 1) {
-
                 fstream.on('close', function() {
-                    spawn('/bin/slic3r/bin/slic3r',[__dirname + '/models/' + filename]);
+
+                    // Execute slic3r with the model as an arguement
+                    // Register a callback to forward the model to the client
+                    exec('/bin/slic3r/bin/slic3r ' + __dirname + '/models/' + filename,
+                    function(error, stdout, stderr) {
+
+                        // If the process terminated properly, forward
+                        if (error != null) {
+                            // TODO: Forward model to client
+                        }
+                    });
                     res.redirect('back');
                 });
-
             }
         });
+
+        if (settings["is_server"]) {
+            socket = new ws(clientip);
+            socket.on('open', function(){
+                socket.send("I AM MESSAGE");
+            });
+        }
+
+        res.redirect('back');
     });
 
-app.listen(process.env.PORT || 8080);
+var server = http.createServer(app);
+server.listen(8080);
+//app.listen(process.env.PORT || 8080);
+
+var wss = new ws.Server({server: server});
+wss.on('connection', function(ws) {
+    ws.on('message', function(message) {
+        console.log(message);
+    });
+});
