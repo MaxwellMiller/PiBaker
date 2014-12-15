@@ -9,7 +9,7 @@ app.use(busboy());
 app.use(express.static(__dirname + '/public'));
 
 
-//
+// Returns, as json, the list of possible print targets
 app.route('/piconnected')
     .get(function(req, res, next) {
         fs.readFile('data/connectedpi', 'utf8', function(err, data) {
