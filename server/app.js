@@ -10,6 +10,8 @@ var settings = {
     "is_server" : "false"
 }
 
+// Read in the config file synchronously, so that it's guaranteed to finish
+// before the server is created.
 if (fs.existsSync('data/config')) {
 
     // If the file exists, read it's contents
