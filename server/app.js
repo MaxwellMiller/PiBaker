@@ -86,9 +86,12 @@ app.route('/modelupload')
 
             var typeCheck = 0;
 
-            for (var format in validModelFormats) {
-                if (filename.indexOf("." + format, this.length - (format.length + 1)) == -1) {
-                    typeCheck = 1;
+            // Can only upload models to the intermediate server, not to the client
+            if (settings["is_server"] === "true") {
+                for (var format in validModelFormats) {
+                    if (filename.indexOf("." + format, this.length - (format.length + 1)) == -1) {
+                        typeCheck = 1;
+                    }
                 }
             }
 
