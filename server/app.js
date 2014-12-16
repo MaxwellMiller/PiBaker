@@ -5,7 +5,8 @@ var express = require('express'),
     spawn = require('child_process').spawn,
     ws = require('ws'),
     http = require('http'),
-    request = require('request');
+    request = require('request'),
+    bodyParser = require('body-parser');
 
 // Populate with default settings
 // If a config file exists, it will override these
@@ -37,6 +38,7 @@ if (fs.existsSync('data/config')) {
 }
 
 var app = express();
+app.use(bodyParser.urlencoded({extended: false}));
 app.use(busboy());
 
 if (settings["is_server"] === "true") {
@@ -87,7 +89,10 @@ app.route('/modelupload')
         var fstream;
         req.pipe(req.busboy);
 
-        var clientip = "ws://localhost:8080";
+        // var clientip = "ws://localhost:8080";
+        var clientip = req.body.printtarget;
+
+        console.log(clientip);
 
         req.busboy.on('file', function (fieldname, file, filename) {
             var typeCheck = 0;
@@ -134,7 +139,7 @@ app.route('/modelupload')
                                 file: fs.createReadStream(__dirname + '/models/' + filenameR + '.gcode')
                             }
 
-                            request.post({url: clientip, formData: formData}, function(err, res, body) {
+                            request.post({url: clientip, formData: formData}, function(err, resp, body) {
                                 console.log('G-code sent to ' + clientip);
                             });
                         }
