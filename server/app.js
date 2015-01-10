@@ -1,5 +1,6 @@
 var express = require('express'),
     fs = require('fs-extra'),
+    bodyParser = require('body-parser'),
     exec = require('child_process').exec,
     spawn = require('child_process').spawn,
     ws = require('ws'),
@@ -46,6 +47,7 @@ if (fs.existsSync('data/config')) {
 
 
 var app = express();
+app.use(bodyParser.json());
 
 if (settings['is_server'] === 'true') {
     app.use(express.static(__dirname + '/public/server/'));
@@ -84,10 +86,48 @@ function loadPrinterList() {
     });
 }
 
-// Returns, as json, the list of possible print targets
+// Write the connectedPrinters array to disk
+// TODO: Do I need to create a lock to ensure the file isn't written multiple times at the same time?
+function writeConnectedPrinters() {
+    var toWrite = '';
+
+    for (var i in connectedPrinters) {
+        toWrite += connectedPrinters[i].name + ' ' + connectedPrinters[i].ip + '\n';
+    }
+
+    fs.writeFile('data/printers', toWrite);
+}
+
+// Returns, as JSON, the list of possible print targets
 app.route('/api/getprinters')
     .get(function(req, res, next) {
         res.json(connectedPrinters);
+        next();
+    });
+
+// Accepts a new printer name/IP pair as JSON and manipulates it.
+app.route('/api/regprinter')
+    .post(function(req, res, next) {
+        var pName = req.body.printerName,
+            pIP = req.body.printerIP;
+
+        var err = 0;
+
+        // Check to see if this printer conflicts with any printers already registered
+        for (var i in connectedPrinters) {
+            if (connectedPrinters[i].name == pName) {
+                console.log('Error: Printer name already in use.');
+                return;
+            }
+
+            if (connectedPrinters[i].ip == pIP) {
+                console.log('Error: Printer is already registered.');
+                return;
+            }
+        }
+
+        connectedPrinters.push({name: pName, ip: pIP});
+        writeConnectedPrinters();
     });
 
 // Handle uploading posted models, or routing g-code
@@ -110,7 +150,7 @@ app.route('/api/modelupload')
                 return;
             }
 
-            var filext = filename.lastIndexOf(".")
+            var filext = filename.lastIndexOf(".");
 
             var typeCheck = 0;
 
@@ -176,7 +216,7 @@ app.route('/api/modelupload')
         // }
 
         res.redirect('back');
-        return;
+        next();
     });
 
 // var server = http.createServer(app);
