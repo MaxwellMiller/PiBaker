@@ -1,12 +1,12 @@
 var express = require('express'),
-    busboy = require('connect-busboy'),
     fs = require('fs-extra'),
     exec = require('child_process').exec,
     spawn = require('child_process').spawn,
     ws = require('ws'),
     http = require('http'),
     request = require('request'),
-    bodyParser = require('body-parser');
+    formidable = require('formidable')
+    util = require('util');
 
 // Populate with default settings
 // If a config file exists, it will override these
@@ -38,14 +38,12 @@ if (fs.existsSync('data/config')) {
 }
 
 var app = express();
-app.use(bodyParser.urlencoded({extended: false}));
-app.use(busboy());
 
 if (settings["is_server"] === "true") {
-    app.use(express.static(__dirname + '/public/server'));
+    app.use(express.static(__dirname + '/public/server/'));
 }
 else {
-    app.use(express.static(__dirname + '/public/client'));
+    app.use(express.static(__dirname + '/public/client/'));
 }
 
 
@@ -87,20 +85,23 @@ app.route('/piconnected')
 app.route('/modelupload')
     .post(function(req, res, next) {
         var fstream;
-        req.pipe(req.busboy);
 
-        // var clientip = "ws://localhost:8080";
-        var clientip = req.body.printtarget;
+        var form = new formidable.IncomingForm();
+        form.uploadDir = __dirname + '/models';
 
-        console.log(clientip);
+        form.parse(req, function(err, fields, files) {
+            ///console.log(util.inspect({fields: fields, files: files}))
+            console.log(fields.target);
+            console.log(files.model.name);
 
-        req.busboy.on('file', function (fieldname, file, filename) {
+            var filename = files.model.name;
+
             var typeCheck = 0;
 
             // Can only upload models to the intermediate server, not to the client
             if (settings["is_server"] === "true") {
                 for (var format in validModelFormats) {
-                    if (filename.indexOf("." + format, this.length - (format.length + 1)) != -1) {
+                    if (filename.indexOf("." + validModelFormats[format], filename.length - (validModelFormats[format].length + 1)) != -1) {
                         typeCheck = 1;
                     }
                 }
@@ -112,60 +113,63 @@ app.route('/modelupload')
 
             // If it's not a valid model format or a gcode file, ignore it
             if (typeCheck == 0) {
-                res.redirect('back');
+                console.log('The uploaded file is not a supported type.');
                 return;
             }
 
-            // Sanitize filename
-            filename = filename.replace(/[^a-z0-9_\-.]/gi, '_').toLowerCase();
+            // TODO: Should the auto-generated, safe, upload names be used? Or sanitized versions of their original names?
+                // Sanitize filename
+                // filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
 
-            // Write the file to disk
-            fstream = fs.createWriteStream(__dirname + '/models/' + filename);
-            file.pipe(fstream);
+                // Move the file to the model directory from the user's tmp dir
+                // console.log(fs.renameSync(files.model.path, __dirname + '/models/' + filename));
 
-            // If the file is a 3D model, slice it
-            if (typeCheck == 1) {
-                fstream.on('close', function() {
-
-                    // Execute slic3r with the model as an arguement
-                    // Register a callback to forward the model to the client
-                    exec('/bin/slic3r/bin/slic3r ' + __dirname + '/models/' + filename,
-                    function(error, stdout, stderr) {
-
-                        // If the process terminated properly, forward
-                        if (error != null) {
-                            // TODO: Test this
-                            var formData = {
-                                file: fs.createReadStream(__dirname + '/models/' + filenameR + '.gcode')
-                            }
-
-                            request.post({url: clientip, formData: formData}, function(err, resp, body) {
-                                console.log('G-code sent to ' + clientip);
-                            });
-                        }
-                    });
-                    res.redirect('back');
-                });
-            }
+            // // If the file is a 3D model, slice it
+            // if (typeCheck == 1) {
+            //     // Execute slic3r with the model as an arguement
+            //     // Register a callback to forward the model to the client
+            //     exec('/bin/slic3r/bin/slic3r ' + __dirname + '/models/' + filename,
+            //     function(error, stdout, stderr) {
+            //
+            //         // If the process terminated properly, forward
+            //         if (error != null) {
+            //             // TODO: Test this
+            //             var formData = {
+            //                 file: fs.createReadStream(__dirname + '/models/' + filename + '.gcode')
+            //             }
+            //
+            //             request.post({url: clientip, formData: formData}, function(err, resp, body) {
+            //                 console.log('G-code sent to ' + clientip);
+            //             });
+            //         }
+            //         else {
+            //             console.log('Error slicing the uploaded model');
+            //         }
+            //     });
+            //
+            //     return;
+            // }
         });
 
-        if (settings["is_server"]) {
-            socket = new ws(clientip);
-            socket.on('open', function(){
-                socket.send("I AM MESSAGE");
-            });
-        }
+
+        // if (settings["is_server"]) {
+        //     socket = new ws(clientip);
+        //     socket.on('open', function(){
+        //         socket.send("I AM MESSAGE");
+        //     });
+        // }
 
         res.redirect('back');
+        return;
     });
 
-var server = http.createServer(app);
-server.listen(8080);
-//app.listen(process.env.PORT || 8080);
+// var server = http.createServer(app);
+// server.listen(8080);
+app.listen(process.env.PORT || 8080);
 
-var wss = new ws.Server({server: server});
-wss.on('connection', function(ws) {
-    ws.on('message', function(message) {
-        console.log(message);
-    });
-});
+// var wss = new ws.Server({server: server});
+// wss.on('connection', function(ws) {
+//     ws.on('message', function(message) {
+//         console.log(message);
+//     });
+// });
