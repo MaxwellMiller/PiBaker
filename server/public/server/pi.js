@@ -1,23 +1,5 @@
 var ipmap = {};
 
-var dialog = '<div class="modal fade">' +
-                '<div class="modal-dialog">' +
-                    '<div class="modal-content">' +
-                        '<div class="modal-header">' +
-                            '<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
-                            '<h4 class="modal-title">Modal title</h4>' +
-                        '</div>' +
-                        '<div class="modal-body">' +
-                            '<p>One fine body&hellip;</p>' +
-                        '</div>' +
-                    '<div class="modal-footer">' +
-                        '<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>' +
-                        '<button type="button" class="btn btn-primary">Save changes</button>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
-        '</div>';
-
 $(document).on('change', '.btn-file :file', function() {
     var input = $(this),
         numFiles = input.get(0).files ? input.get(0).files.length : 1,
@@ -41,20 +23,53 @@ $(document).ready(function() {
             e.preventDefault();
         }
     });
+
+    // Register an onclick event to register a new printer from the modal
+    $('#add-printer-submit').click(function(e){
+        var pName = $('#add-printer-name')[0].value;
+        var pIP = $('#add-printer-ip')[0].value;
+
+        if (pName == '' || pIP == '') {
+            // TODO: Make pretty error
+            console.log('Must supply a name and IP address.');
+            return;
+        }
+
+        $.ajax({
+            url: '/api/regprinter',
+            type: 'POST',
+            data: JSON.stringify({printerName: pName, printerIP: pIP}),
+            dataType: 'json',
+            contentType: 'application/json'
+        });
+
+        dismissAddPrinterDialog();
+        populatePrinterList();
+    });
 });
+
+// Remove the Add Printer dialog and clear data
+function dismissAddPrinterDialog() {
+    $('#add-printer-modal').modal('hide');
+    $('#add-printer-name')[0].value = '';
+    $('#add-printer-ip')[0].value = '';
+}
 
 function setCurrentPrinter(name) {
     $('#printer-select-display')[0].innerHTML = name + '<span class="caret"></span>';
     $('#print-target')[0].value = name;
 }
 
-window.onload = function() {
-
+function populatePrinterList() {
     // Populate dropdown list
     $.get("/api/getprinters", function(data, status) {
+
+        // Clear dropdown list to prepare it to be repopulated
+        $('#printer-select')[0].innerHTML = '';
+
         for (var i=0; i<data.length; ++i) {
             var listEl = document.createElement('li');
-            listEl.innerHTML = '<a>' + data[i].name + '</a>';
+            listEl.innerHTML = '<a style="padding-right:5px;" name="' + data[i].name + '">' + data[i].name + '<div class="btn-group btn-group-xs pull-right" role="group"><button type="button" class="btn btn-default"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>Edit</button><button type="button" class="btn btn-default">&times</button></div></a>';
             $('#printer-select')[0].appendChild(listEl);
 
             // Keep track of the ip address of this ip
@@ -74,11 +89,11 @@ window.onload = function() {
         // If there is at least one printer, set it as the default
         var plist = $('#printer-select')[0];
         if (plist.children.length > 2) {
-            setCurrentPrinter(plist.children[0].children[0].text);
+            setCurrentPrinter($('#printer-select')[0].children[0].children[0].attributes['name'].value);
         }
         // If there are no printers in the list current, default to 'Select Printer' (to allow the user to click 'Add Printer')
         else {
-            $('#printer-select-display')[0].innerHTML = name + 'Select Printer<span class="caret"></span>';
+            $('#printer-select-display')[0].innerHTML = 'Select Printer<span class="caret"></span>';
         }
 
         // Register click events on the dropdown list items
@@ -87,9 +102,12 @@ window.onload = function() {
                 console.log('add-printer');
             }
             else {
-                setCurrentPrinter(e.target.innerText);
+                setCurrentPrinter(e.target.attributes['name'].value);
             }
         });
     });
+}
 
+window.onload = function() {
+    populatePrinterList();
 }

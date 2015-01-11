@@ -17,7 +17,7 @@
             <div id="icontent">
             <div style="width: 100%; padding-top: 40px;">
                 <form action="/api/modelupload" method="post" enctype="multipart/form-data">
-                    <div class="input-group col-sm-6 col-sm-8 col-12 centered">
+                    <div class="input-group col-xs-12 col-sm-8 centered">
 
                         <span class="input-group-btn">
                             <span class="btn btn-primary btn-file">
@@ -33,7 +33,7 @@
                                 <span class="caret"></span>
                             </button>
 
-                            <ul class="dropdown-menu" id="printer-select" role="menu">
+                            <ul class="dropdown-menu pull-right" id="printer-select" role="menu">
                                 <!-- Dynamically Populated -->
                             </ul>
                         </div>
@@ -57,14 +57,14 @@
 
                     <div class="modal-body">
                         <div class="input-group" style="width: 100%">
-                            <input type="text" class="form-control" placeholder="Printer Name"></input>
-                            <input type="text" class="form-control" placeholder="Printer IP" style="margin-top: 10px"></input>
+                            <input type="text" class="form-control" placeholder="Printer Name" id="add-printer-name"></input>
+                            <input type="text" class="form-control" placeholder="Printer IP" id="add-printer-ip" style="margin-top: 10px"></input>
                         </div>
                     </div>
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary">Save changes</button>
+                        <button type="button" class="btn btn-primary" id="add-printer-submit">Add Printer</button>
                     </div>
                 </div>
             </div>
