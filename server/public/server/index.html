@@ -47,6 +47,8 @@
             </div>
         </center>
 
+        <!-- Even though these two modals are basically the same, they are replicated with different id's so that adding a
+        printer and editing one can be differentiated (to avoid unintentional overwriting of printers by using the same name) -->
         <div class="modal fade" id="add-printer-modal" tabindex="-1" role="dialog" aria-labelledby="add-printer" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -64,7 +66,31 @@
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" id="add-printer-submit">Add Printer</button>
+                        <button type="button" class="btn btn-primary" id="add-printer-submit">Sumbit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="edit-printer-modal" tabindex="-1" role="dialog" aria-labelledby="edit-printer" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title" id="myModalLabel">Edit Printer</h4>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="input-group" style="width: 100%">
+                            <input type="text" class="form-control" placeholder="Printer Name" id="edit-printer-name"></input>
+                            <input type="text" class="form-control" placeholder="Printer IP" id="edit-printer-ip" style="margin-top: 10px"></input>
+                            <input type="hidden" id="edit-printer-oname"></input>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="edit-printer-submit">Submit</button>
                     </div>
                 </div>
             </div>

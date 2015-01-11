@@ -105,13 +105,21 @@ app.route('/api/getprinters')
         next();
     });
 
-// Accepts a new printer name/IP pair as JSON and manipulates it.
+// Accepts a new printer name/IP pair as JSON and adds it to the internal list
 app.route('/api/regprinter')
     .post(function(req, res, next) {
         var pName = req.body.printerName,
             pIP = req.body.printerIP;
 
-        var err = 0;
+        if (pName === undefined || pName === '' ||
+            pIP   === undefined || pIP   === '') {
+
+            // TODO: Pretty Dialog
+            console.log('Must provide a name and IP address when adding a printer record.');
+
+            res.end();
+            return;
+        }
 
         // Check to see if this printer conflicts with any printers already registered
         for (var i in connectedPrinters) {
@@ -128,6 +136,72 @@ app.route('/api/regprinter')
 
         connectedPrinters.push({name: pName, ip: pIP});
         writeConnectedPrinters();
+
+        res.end();
+    });
+
+app.route('/api/editprinter')
+    .post(function(req, res, next) {
+        var npName = req.body.newPrinterName,
+            opName = req.body.oldPrinterName,
+            pIP = req.body.printerIP;
+
+        if (npName === undefined || npName === '' ||
+            opName === undefined || opName === '' ||
+            pIP    === undefined || pIP    === '') {
+
+            // TODO: Pretty Dialog
+            console.log('Must provide an original name, new name, and new IP address when changing a printer record.');
+
+            res.end();
+            return;
+        }
+
+        // Check to see if this printer conflicts with any printers already registered
+        for (var i in connectedPrinters) {
+            if (connectedPrinters[i].name === opName) {
+
+                connectedPrinters[i].name = npName;
+                connectedPrinters[i].ip = pIP;
+
+                writeConnectedPrinters();
+                res.end();
+                return;
+            }
+
+        }
+
+        // We should only get here if a printer that didn't exist were trying to be edited
+        // TODO: Return a message for a nice dialog
+        console.log("Can't edit a printer that doesn't exist!");
+
+        res.end();
+    });
+
+
+// Removes a printer with the name sent
+app.route('/api/delprinter')
+    .post(function(req, res, next) {
+        var pName = req.body.printerName;
+
+        // Find this printer name in the internal list. It is guaranteed to be unique, if it exists.
+        for (var i in connectedPrinters) {
+            if (connectedPrinters[i].name === pName) {
+                // Remove this element from the list
+                connectedPrinters.splice(i, 1);
+
+                // Write the file to disk and close the connection
+                writeConnectedPrinters();
+                res.end();
+                return;
+            }
+        }
+
+        // If we got here, there printer deleted does not exist
+        // TODO: Send message back to show pretty error message
+        console.log("Can't delete a printer that doesn't exist!");
+
+        res.end();
     });
 
 // Handle uploading posted models, or routing g-code
