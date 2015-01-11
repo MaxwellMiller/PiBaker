@@ -314,7 +314,12 @@ app.route('/api/modelupload')
                         }
 
                         request.post({url: pIP, formData: formData}, function(err, resp, body) {
-                            console.log('G-code sent to ' + clientip);
+                            if (err == null) {
+                                console.log('G-code sent to ' + pIP);
+                            }
+                            else {
+                                console.log('Error sending G-code to ' + pIP);
+                            }
                         });
                     }
                     else {
