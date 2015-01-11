@@ -89,9 +89,9 @@ function dismissEditPrinterDialog() {
 function setCurrentPrinter(name) {
     $('#printer-select-display')[0].innerHTML = name + '<span class="caret"></span>';
 
-    // Only the IP address will be sumbitted to the server to make the endpoint more flexable.
-    // Otherwise, a printer would NEED to be registered in order to be printed to.
-    $('#print-target')[0].value = ipmap[name];
+    // The name is being submitted to the server, so it can be verified as a registered printer
+    // before initiating the slicing job.
+    $('#print-target')[0].value = name;
 }
 
 function populatePrinterList() {
@@ -101,30 +101,68 @@ function populatePrinterList() {
         // Clear dropdown list to prepare it to be repopulated
         $('#printer-select')[0].innerHTML = '';
 
-        for (var i=0; i<data.length; ++i) {
-            var listEl = document.createElement('li');
-            listEl.innerHTML = '<a style="padding-right:60px;">' + data[i].name + '</a>' +
-                '<div class="btn-group btn-group-xs" role="group" style="position: absolute; margin-top: -22px; right: 5px;">' +
-                    '<button type="button" class="btn btn-default" name="editprinter" value="' + data[i].name + '">' +
-                        '<span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>&nbsp;' +
-                    '</button>' +
-                    '<button type="button" class="btn btn-default" name="delprinter" value="' + data[i].name + '">&times</button>' +
-                '</div>';
+        for (var i=0; i<data.printers.length; ++i) {
+            var listEl = document.createElement('li'),
+                rightPadding = '60px',
+                editButtons = '' +
+                    '<div class="btn-group btn-group-xs" role="group" style="position: absolute; margin-top: -22px; right: 5px;">' +
+                        '<button type="button" class="btn btn-default" name="editprinter" value="' + data.printers[i].name + '">' +
+                            '<span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>&nbsp;' +
+                        '</button>' +
+                        '<button type="button" class="btn btn-default" name="delprinter" value="' + data.printers[i].name + '">&times</button>' +
+                    '</div>';
+
+            if (data.locked == 'true') {
+                rightPadding = '0px';
+                editButtons = '';
+            }
+
+            listEl.innerHTML = '<a style="padding-right:' + rightPadding + ';">' + data.printers[i].name + '</a>' + editButtons;
+
             $('#printer-select')[0].appendChild(listEl);
 
             // Keep track of the ip addresses of the registered printers. This is to allow for easy editing and viewing.
-            ipmap[data[i].name] = data[i].ip;
+            ipmap[data.printers[i].name] = data.printers[i].ip;
         }
 
-        // Create and append the 'Add Printer' option
-        var listSep = document.createElement('li');
-        listSep.setAttribute('role', 'presentation');
-        listSep.setAttribute('class', 'divider');
-        $('#printer-select')[0].appendChild(listSep);
+        if (data.locked == 'false') {
+            // Create and append the 'Add Printer' option
+            var listSep = document.createElement('li');
+            listSep.setAttribute('role', 'presentation');
+            listSep.setAttribute('class', 'divider');
+            $('#printer-select')[0].appendChild(listSep);
 
-        var addPrinter = document.createElement('li');
-        addPrinter.innerHTML = '<a id=\'add-printer\' data-toggle="modal" data-target="#add-printer-modal">Add Printer</a>';
-        $('#printer-select')[0].appendChild(addPrinter);
+            var addPrinter = document.createElement('li');
+            addPrinter.innerHTML = '<a id=\'add-printer\' data-toggle="modal" data-target="#add-printer-modal">Add Printer</a>';
+            $('#printer-select')[0].appendChild(addPrinter);
+
+
+            // Register a callback for the edit/delete buttons on each of the dropdown items
+            $('#printer-select li div button').click(function(e) {
+                var action = e.currentTarget.attributes['name'].value;
+                var pName = e.currentTarget.attributes['value'].value;
+
+                if (action === 'delprinter') {
+                    $.ajax({
+                        url: '/api/delprinter',
+                        type: 'POST',
+                        data: JSON.stringify({printerName: pName}),
+                        dataType: 'json',
+                        contentType: 'application/json'
+                    });
+
+                    populatePrinterList();
+                }
+                else if (action === 'editprinter') {
+                    $('#edit-printer-name')[0].value = pName;
+                    // TODO: What happens if this isn't in the map?
+                    $('#edit-printer-ip')[0].value = ipmap[pName];
+                    $('#edit-printer-oname')[0].value = pName;
+                    $('#edit-printer-modal').modal('show');
+                }
+            });
+        }
+
 
         // If there is at least one printer, set it as the default
         var plist = $('#printer-select')[0];
@@ -143,31 +181,6 @@ function populatePrinterList() {
             }
             else {
                 setCurrentPrinter(e.currentTarget.innerText);
-            }
-        });
-
-        // Register a callback for the edit/delete buttons on each of the dropdown items
-        $('#printer-select li div button').click(function(e) {
-            var action = e.currentTarget.attributes['name'].value;
-            var pName = e.currentTarget.attributes['value'].value;
-
-            if (action === 'delprinter') {
-                $.ajax({
-                    url: '/api/delprinter',
-                    type: 'POST',
-                    data: JSON.stringify({printerName: pName}),
-                    dataType: 'json',
-                    contentType: 'application/json'
-                });
-
-                populatePrinterList();
-            }
-            else if (action === 'editprinter') {
-                $('#edit-printer-name')[0].value = pName;
-                // TODO: What happens if this isn't in the map?
-                $('#edit-printer-ip')[0].value = ipmap[pName];
-                $('#edit-printer-oname')[0].value = pName;
-                $('#edit-printer-modal').modal('show');
             }
         });
     });

@@ -12,7 +12,8 @@ var express = require('express'),
 // Populate with default settings
 // If a config file exists, it will override these
 var settings = {
-    'is_server' : 'false'
+    'is_server' : 'false',
+    'locked'    : 'false'
 }
 
 // Contains an in-memory list of the connected printers
@@ -98,10 +99,21 @@ function writeConnectedPrinters() {
     fs.writeFile('data/printers', toWrite);
 }
 
-// Returns, as JSON, the list of possible print targets
+// Given a printer name, return the corresponding IP address, or undefined if it is not registered
+function lookupIP(name) {
+    for (var i in connectedPrinters) {
+        if (name === connectedPrinters[i].name) {
+            return connectedPrinters[i].ip;
+        }
+    }
+
+    return undefined;
+}
+
+// Returns, as JSON, the list of possible print targets and whether editing is currently locked.
 app.route('/api/getprinters')
     .get(function(req, res, next) {
-        res.json(connectedPrinters);
+        res.json({printers : connectedPrinters, locked : settings['locked']});
         next();
     });
 
@@ -110,6 +122,13 @@ app.route('/api/regprinter')
     .post(function(req, res, next) {
         var pName = req.body.printerName,
             pIP = req.body.printerIP;
+
+        if (settings['locked'] == 'true') {
+            console.log('Cannot add printer record. The server list is locked.');
+
+            res.end();
+            return;
+        }
 
         if (pName === undefined || pName === '' ||
             pIP   === undefined || pIP   === '') {
@@ -145,6 +164,13 @@ app.route('/api/editprinter')
         var npName = req.body.newPrinterName,
             opName = req.body.oldPrinterName,
             pIP = req.body.printerIP;
+
+        if (settings['locked'] == 'true') {
+            console.log('Cannot edit printer record. The server list is locked.');
+
+            res.end();
+            return;
+        }
 
         if (npName === undefined || npName === '' ||
             opName === undefined || opName === '' ||
@@ -184,6 +210,13 @@ app.route('/api/delprinter')
     .post(function(req, res, next) {
         var pName = req.body.printerName;
 
+        if (settings['locked'] == 'true') {
+            console.log('Cannot remove printer record. The server list is locked.');
+
+            res.end();
+            return;
+        }
+
         // Find this printer name in the internal list. It is guaranteed to be unique, if it exists.
         for (var i in connectedPrinters) {
             if (connectedPrinters[i].name === pName) {
@@ -213,70 +246,84 @@ app.route('/api/modelupload')
         form.uploadDir = __dirname + '/models';
 
         form.parse(req, function(err, fields, files) {
-            console.log('Initiating print to ' + fields.target);
+            var filename = files.model.name,
+                pName = fields.target,
+                pIP = lookupIP(fields.target);
 
-            var filename = files.model.name;
+            if (pIP === undefined) {
+                console.log('Printer is not registered with the server');
+            }
+
+            console.log('Initiating print to ' + pName + ' at ' + pIP);
 
             if (filename.indexOf('.') == -1 || filename.length <= 4) {
                 console.log('Invalid filename. Either too short or no extension');
+
+                res.end();
                 return;
             }
 
-            var filext = filename.lastIndexOf(".");
+            // It is guaranteed that there is at least one instance of '.'
+            var filext = filename.substring(filename.lastIndexOf("."));
 
             var typeCheck = 0;
 
             // Can only upload models to the intermediate server, not to the client
             if (settings['is_server'] === 'true') {
-                for (var format in validModelFormats) {
-                    if (filename.indexOf('.' + validModelFormats[format], filename.length - (validModelFormats[format].length + 1)) != -1) {
+                for (var i in validModelFormats) {
+                    if (('.' + validModelFormats[i]) === filext) {
                         typeCheck = 1;
                     }
                 }
             }
 
-            if (filename.indexOf('.gcode', this.length - '.gcode'.length) != -1) {
+            if ('.gcode' === filext) {
                 typeCheck = 2;
             }
 
             // If it's not a valid model format or a gcode file, ignore it
             if (typeCheck == 0) {
                 console.log('The uploaded file is not a supported type.');
+
+                res.end();
                 return;
             }
 
+
             // TODO: Should the auto-generated, safe, upload names be used? Or sanitized versions of their original names?
-                // Sanitize filename
-                // filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
+            // This has the unfortunate downside of potentially colliding with other files. Maybe probe the directory and generate
+            // my own name if there is a collision.
+            // Sanitize filename
+            filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
 
-                // Move the file to the model directory from the user's tmp dir
-                // console.log(fs.renameSync(files.model.path, __dirname + '/models/' + filename));
+            // Rename the file to some a little nicer
+            fs.renameSync(files.model.path, __dirname + '/models/' + filename);
 
-            // // If the file is a 3D model, slice it
-            // if (typeCheck == 1) {
-            //     // Execute slic3r with the model as an arguement
-            //     // Register a callback to forward the model to the client
-            //     exec('/bin/slic3r/bin/slic3r ' + __dirname + '/models/' + filename,
-            //     function(error, stdout, stderr) {
-            //
-            //         // If the process terminated properly, forward
-            //         if (error != null) {
-            //             // TODO: Test this
-            //             var formData = {
-            //                 file: fs.createReadStream(__dirname + '/models/' + filename + '.gcode')
-            //             }
-            //
-            //             request.post({url: clientip, formData: formData}, function(err, resp, body) {
-            //                 console.log('G-code sent to ' + clientip);
-            //             });
-            //         }
-            //         else {
-            //             console.log('Error slicing the uploaded model');
-            //         }
-            //     });
-            //
-            //     return;
-            // }
+            // If the file is a 3D model, slice it
+            if (typeCheck == 1) {
+                // Execute slic3r with the model as an arguement
+                // Register a callback to forward the model to the client
+                exec('/bin/slic3r/bin/slic3r ' + __dirname + '/models/' + filename,
+                function(error, stdout, stderr) {
+
+                    // If the process terminated properly, forward
+                    if (error == null) {
+                        // TODO: Test this
+                        var formData = {
+                            file: fs.createReadStream(__dirname + '/models/' + filename + '.gcode')
+                        }
+
+                        request.post({url: pIP, formData: formData}, function(err, resp, body) {
+                            console.log('G-code sent to ' + clientip);
+                        });
+                    }
+                    else {
+                        console.log('Error slicing the uploaded model');
+                    }
+                });
+
+                return;
+            }
         });
 
 
