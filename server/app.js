@@ -265,7 +265,7 @@ app.route('/api/modelupload')
 
             // It is guaranteed that there is at least one instance of '.'
             var filext = filename.substring(filename.lastIndexOf("."));
-
+            var filen = filename.substring(0, filename.lastIndexOf("."));
             var typeCheck = 0;
 
             // Can only upload models to the intermediate server, not to the client
@@ -310,7 +310,7 @@ app.route('/api/modelupload')
                     if (error == null) {
                         // TODO: Test this
                         var formData = {
-                            file: fs.createReadStream(__dirname + '/models/' + filename + '.gcode')
+                            file: fs.createReadStream(__dirname + '/models/' + filen + '.gcode')
                         }
 
                         request.post({url: pIP, formData: formData}, function(err, resp, body) {
