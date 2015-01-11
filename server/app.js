@@ -213,9 +213,7 @@ app.route('/api/modelupload')
         form.uploadDir = __dirname + '/models';
 
         form.parse(req, function(err, fields, files) {
-            ///console.log(util.inspect({fields: fields, files: files}))
-            console.log(fields.target);
-            console.log(files.model.name);
+            console.log('Initiating print to ' + fields.target);
 
             var filename = files.model.name;
 

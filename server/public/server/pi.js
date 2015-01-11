@@ -88,7 +88,10 @@ function dismissEditPrinterDialog() {
 
 function setCurrentPrinter(name) {
     $('#printer-select-display')[0].innerHTML = name + '<span class="caret"></span>';
-    $('#print-target')[0].value = name;
+
+    // Only the IP address will be sumbitted to the server to make the endpoint more flexable.
+    // Otherwise, a printer would NEED to be registered in order to be printed to.
+    $('#print-target')[0].value = ipmap[name];
 }
 
 function populatePrinterList() {
