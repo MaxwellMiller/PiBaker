@@ -110,6 +110,25 @@ function lookupIP(name) {
     return undefined;
 }
 
+function forwardModelToPi(filepath, ipaddr) {
+    var formData = {
+        model: fs.createReadStream(filepath)
+    }
+
+    request.post({
+        url: ipaddr,
+        formData: formData
+    }, function(err, resp, body) {
+        if (err == null) {
+            console.log('G-code sent to ' + ipaddr);
+        }
+        else {
+            console.log('Error sending G-code to ' + ipaddr);
+            console.log(err);
+        }
+    });
+}
+
 // Returns, as JSON, the list of possible print targets and whether editing is currently locked.
 app.route('/api/getprinters')
     .get(function(req, res, next) {
@@ -264,9 +283,8 @@ app.route('/api/modelupload')
             }
 
             // It is guaranteed that there is at least one instance of '.'
-            var filext = filename.substring(filename.lastIndexOf("."));
-            var filen = filename.substring(0, filename.lastIndexOf("."));
-            var typeCheck = 0;
+            var filext = filename.substring(filename.lastIndexOf(".")),
+                typeCheck = 0;
 
             // Can only upload models to the intermediate server, not to the client
             if (settings['is_server'] === 'true') {
@@ -296,8 +314,12 @@ app.route('/api/modelupload')
             // Sanitize filename
             filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
 
+            var filen = filename.substring(0, filename.lastIndexOf(".")),
+                gcodeFile = __dirname + '/models/' + filen + '.gcode';
+
             // Rename the file to some a little nicer
             fs.renameSync(files.model.path, __dirname + '/models/' + filename);
+
 
             // If the file is a 3D model, slice it
             if (typeCheck == 1) {
@@ -308,27 +330,22 @@ app.route('/api/modelupload')
 
                     // If the process terminated properly, forward
                     if (error == null) {
-                        // TODO: Test this
-                        var formData = {
-                            file: fs.createReadStream(__dirname + '/models/' + filen + '.gcode')
-                        }
-
-                        request.post({url: pIP, formData: formData}, function(err, resp, body) {
-                            if (err == null) {
-                                console.log('G-code sent to ' + pIP);
-                            }
-                            else {
-                                console.log('Error sending G-code to ' + pIP);
-                            }
-                        });
+                        forwardModelToPi(gcodeFile, pIP);
                     }
                     else {
                         console.log('Error slicing the uploaded model');
                     }
                 });
-
-                return;
             }
+            else if (typeCheck == 2) {
+                forwardModelToPi(gcodeFile, pIP);
+            }
+            else {
+                console.log('Error: typeCheck == ' + typeCheck + '. Do not know how to handle.');
+            }
+
+            res.end();
+            return;
         });
 
 
