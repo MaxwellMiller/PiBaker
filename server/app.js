@@ -273,7 +273,7 @@ app.route('/api/modelupload')
 
         form.parse(req, function(err, fields, files) {
 
-            var filename = files.model.name,
+            var filename = files.model.path,
                 pName = fields.target,
                 pIP = lookupIP(fields.target);
 
@@ -286,7 +286,18 @@ app.route('/api/modelupload')
 
             console.log('Initiating print to ' + pName + ' at ' + pIP);
 
-            if (filename.indexOf('.') == -1 || filename.length <= 4) {
+            // Currently filename is a full path, remove the path (need to cover windows and unix style paths)
+            if (filename.lastIndexOf('/') != -1) {
+                filename = filename.substring(filename.lastIndexOf('/') + 1);
+                console.log('filename: ' + filename);
+            }
+            if (filename.lastIndexOf('\\') != -1) {
+                filename = filename.substring(filename.lastIndexOf('\\') + 1);
+                console.log('filename: ' + filename);
+            }
+
+            // Make sure the original file had an extension
+            if (files.model.name.indexOf('.') == -1 || files.model.name.length <= 4) {
 
                 res.status(400);
                 res.end('Invalid filename. Either too short or no extension');
@@ -294,7 +305,7 @@ app.route('/api/modelupload')
             }
 
             // It is guaranteed that there is at least one instance of '.'
-            var filext = filename.substring(filename.lastIndexOf(".")),
+            var filext = files.model.name.substring(files.model.name.lastIndexOf(".")).toLowerCase(),
                 typeCheck = 0;
 
             // Can only upload models to the intermediate server, not to the client
@@ -318,25 +329,23 @@ app.route('/api/modelupload')
             }
 
 
-            filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
+            // filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
 
-            var filen = filename.substring(0, filename.lastIndexOf(".")),
-                gcodeFile = __dirname + '/models/' + filen + '.gcode';
+            var gcodeFile = __dirname + '/models/' + filename + '.gcode';
 
             // Rename the file to some a little nicer
-            fs.renameSync(files.model.path, __dirname + '/models/' + filename);
+            fs.renameSync(files.model.path, __dirname + '/models/' + filename + filext);
 
             // TODO: This process is not necessarilly fast. It may take longer
             // than the timeout period for the http response. Current idea: open
             // a websocket with the client here, register a callback for when the slicing
             // process finishes to send the result (success/failure) to the client
 
-
             // If the file is a 3D model, slice it
             if (typeCheck == 1) {
                 // Execute slic3r with the model as an arguement
                 // Register a callback to forward the model to the client
-                exec('/bin/slic3r/bin/slic3r ' + __dirname + '/models/' + filename,
+                exec('/bin/slic3r/bin/slic3r ' + __dirname + '/models/' + filename + filext,
                 function(error, stdout, stderr) {
 
                     // If the process terminated properly, forward
@@ -349,9 +358,11 @@ app.route('/api/modelupload')
                 });
             }
             else if (typeCheck == 2) {
+
                 forwardModelToPi(gcodeFile, pIP);
             }
             else {
+                
                 res.status(400);
                 res('Error: typeCheck == ' + typeCheck + '. Do not know how to handle.');
             }
