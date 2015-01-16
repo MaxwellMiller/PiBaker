@@ -273,11 +273,21 @@ app.route('/api/modelupload')
 
         form.parse(req, function(err, fields, files) {
 
-            var filename = files.model.path,
+            // Verify a file was actually uploaded
+            if (files.model == undefined || files.model.path == undefined) {
+                res.status(400);
+                res.end('No file provided.');
+            }
+
+            var filepath = files.model.path,
+                filename = files.model.path,
                 pName = fields.target,
                 pIP = lookupIP(fields.target);
 
+
             if (pIP === undefined) {
+
+                fs.unlinkSync(filepath);
 
                 res.status(400);
                 res.end('Printer is not registered with the server');
@@ -289,15 +299,15 @@ app.route('/api/modelupload')
             // Currently filename is a full path, remove the path (need to cover windows and unix style paths)
             if (filename.lastIndexOf('/') != -1) {
                 filename = filename.substring(filename.lastIndexOf('/') + 1);
-                console.log('filename: ' + filename);
             }
             if (filename.lastIndexOf('\\') != -1) {
                 filename = filename.substring(filename.lastIndexOf('\\') + 1);
-                console.log('filename: ' + filename);
             }
 
             // Make sure the original file had an extension
             if (files.model.name.indexOf('.') == -1 || files.model.name.length <= 4) {
+
+                fs.unlinkSync(filepath);
 
                 res.status(400);
                 res.end('Invalid filename. Either too short or no extension');
@@ -323,6 +333,9 @@ app.route('/api/modelupload')
 
             // If it's not a valid model format or a gcode file, ignore it
             if (typeCheck == 0) {
+
+                fs.unlinkSync(filepath);
+
                 res.status(400);
                 res.end('The uploaded file is not a supported type.');
                 return;
@@ -331,10 +344,9 @@ app.route('/api/modelupload')
 
             // filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
 
-            var gcodeFile = __dirname + '/models/' + filename + '.gcode';
-
             // Rename the file to some a little nicer
             fs.renameSync(files.model.path, __dirname + '/models/' + filename + filext);
+            filepath = __dirname + '/models/' + filename + filext;
 
             // TODO: This process is not necessarilly fast. It may take longer
             // than the timeout period for the http response. Current idea: open
@@ -350,21 +362,27 @@ app.route('/api/modelupload')
 
                     // If the process terminated properly, forward
                     if (error == null) {
-                        forwardModelToPi(gcodeFile, pIP);
+
+                        fs.unlinkSync(filepath);
+
+                        filepath = __dirname + '/models/' + filename + '.gcode';
+                        forwardModelToPi(filepath, pIP);
                     }
                     else {
                         console.log('Error slicing the uploaded model');
+                        fs.unlinkSync(filepath);
                     }
                 });
             }
             else if (typeCheck == 2) {
 
-                forwardModelToPi(gcodeFile, pIP);
+                forwardModelToPi(filepath, pIP);
             }
             else {
-                
+
                 res.status(400);
-                res('Error: typeCheck == ' + typeCheck + '. Do not know how to handle.');
+                res.end('Error: typeCheck == ' + typeCheck + '. Do not know how to handle.');
+                return;
             }
 
             res.end();
