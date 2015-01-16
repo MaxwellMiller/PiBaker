@@ -139,35 +139,41 @@ app.route('/api/getprinters')
 // Accepts a new printer name/IP pair as JSON and adds it to the internal list
 app.route('/api/regprinter')
     .post(function(req, res, next) {
-        var pName = req.body.printerName,
-            pIP = req.body.printerIP;
+        var pName = req.body.printerName.trim(),
+            pIP = req.body.printerIP.trim();
 
         if (settings['locked'] == 'true') {
-            console.log('Cannot add printer record. The server list is locked.');
 
-            res.end();
+            res.status(400)
+            res.end('Cannot add printer record. The server list is locked.');
             return;
         }
 
-        if (pName === undefined || pName === '' ||
-            pIP   === undefined || pIP   === '') {
+        // TODO: These should be validating IP address and name more
+        if (pName === undefined || pName.trim() === '' ||
+            pIP   === undefined || pIP.trim()   === '') {
 
-            // TODO: Pretty Dialog
-            console.log('Must provide a name and IP address when adding a printer record.');
-
-            res.end();
+            res.status(400);
+            res.end('Must provide a name and IP address when adding a printer record.');
             return;
         }
+
+        pName = pName.trim();
+        pIP = pIP.trim();
 
         // Check to see if this printer conflicts with any printers already registered
         for (var i in connectedPrinters) {
             if (connectedPrinters[i].name == pName) {
-                console.log('Error: Printer name already in use.');
+
+                res.status(400);
+                res.end('Printer name already in use.');
                 return;
             }
 
             if (connectedPrinters[i].ip == pIP) {
-                console.log('Error: Printer is already registered.');
+
+                res.status(400);
+                res.end('Printer is already registered.');
                 return;
             }
         }
@@ -185,22 +191,24 @@ app.route('/api/editprinter')
             pIP = req.body.printerIP;
 
         if (settings['locked'] == 'true') {
-            console.log('Cannot edit printer record. The server list is locked.');
-
-            res.end();
+            res.status(400);
+            res.end('Cannot edit printer record. The server list is locked.');
             return;
         }
 
-        if (npName === undefined || npName === '' ||
-            opName === undefined || opName === '' ||
-            pIP    === undefined || pIP    === '') {
+        // TODO: More validation checking here
+        if (npName === undefined || npName.trim() === '' ||
+            opName === undefined || opName.trim() === '' ||
+            pIP    === undefined || pIP.trim()    === '') {
 
-            // TODO: Pretty Dialog
-            console.log('Must provide an original name, new name, and new IP address when changing a printer record.');
-
-            res.end();
+            res.status(400);
+            res.end('Must provide an original name, new name, and new IP address when changing a printer record.');
             return;
         }
+
+        npName = npName.trim();
+        opName = opName.trim();
+        pIP = pIP.trim();
 
         // Check to see if this printer conflicts with any printers already registered
         for (var i in connectedPrinters) {
@@ -217,10 +225,9 @@ app.route('/api/editprinter')
         }
 
         // We should only get here if a printer that didn't exist were trying to be edited
-        // TODO: Return a message for a nice dialog
-        console.log("Can't edit a printer that doesn't exist!");
-
-        res.end();
+        res.status(400);
+        res.end("Can't edit a printer that doesn't exist!");
+        return;
     });
 
 
@@ -230,15 +237,16 @@ app.route('/api/delprinter')
         var pName = req.body.printerName;
 
         if (settings['locked'] == 'true') {
-            console.log('Cannot remove printer record. The server list is locked.');
 
-            res.end();
+            res.status(400);
+            res.end('Cannot remove printer record. The server list is locked.');
             return;
         }
 
         // Find this printer name in the internal list. It is guaranteed to be unique, if it exists.
         for (var i in connectedPrinters) {
             if (connectedPrinters[i].name === pName) {
+
                 // Remove this element from the list
                 connectedPrinters.splice(i, 1);
 
@@ -250,10 +258,9 @@ app.route('/api/delprinter')
         }
 
         // If we got here, there printer deleted does not exist
-        // TODO: Send message back to show pretty error message
-        console.log("Can't delete a printer that doesn't exist!");
-
-        res.end();
+        res.status(400);
+        res.end("Can't delete a printer that doesn't exist!");
+        return;
     });
 
 // Handle uploading posted models, or routing g-code
@@ -265,20 +272,24 @@ app.route('/api/modelupload')
         form.uploadDir = __dirname + '/models';
 
         form.parse(req, function(err, fields, files) {
+
             var filename = files.model.name,
                 pName = fields.target,
                 pIP = lookupIP(fields.target);
 
             if (pIP === undefined) {
-                console.log('Printer is not registered with the server');
+
+                res.status(400);
+                res.end('Printer is not registered with the server');
+                return;
             }
 
             console.log('Initiating print to ' + pName + ' at ' + pIP);
 
             if (filename.indexOf('.') == -1 || filename.length <= 4) {
-                console.log('Invalid filename. Either too short or no extension');
 
-                res.end();
+                res.status(400);
+                res.end('Invalid filename. Either too short or no extension');
                 return;
             }
 
@@ -301,17 +312,12 @@ app.route('/api/modelupload')
 
             // If it's not a valid model format or a gcode file, ignore it
             if (typeCheck == 0) {
-                console.log('The uploaded file is not a supported type.');
-
-                res.end();
+                res.status(400);
+                res.end('The uploaded file is not a supported type.');
                 return;
             }
 
 
-            // TODO: Should the auto-generated, safe, upload names be used? Or sanitized versions of their original names?
-            // This has the unfortunate downside of potentially colliding with other files. Maybe probe the directory and generate
-            // my own name if there is a collision.
-            // Sanitize filename
             filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
 
             var filen = filename.substring(0, filename.lastIndexOf(".")),
@@ -319,6 +325,11 @@ app.route('/api/modelupload')
 
             // Rename the file to some a little nicer
             fs.renameSync(files.model.path, __dirname + '/models/' + filename);
+
+            // TODO: This process is not necessarilly fast. It may take longer
+            // than the timeout period for the http response. Current idea: open
+            // a websocket with the client here, register a callback for when the slicing
+            // process finishes to send the result (success/failure) to the client
 
 
             // If the file is a 3D model, slice it
@@ -341,7 +352,8 @@ app.route('/api/modelupload')
                 forwardModelToPi(gcodeFile, pIP);
             }
             else {
-                console.log('Error: typeCheck == ' + typeCheck + '. Do not know how to handle.');
+                res.status(400);
+                res('Error: typeCheck == ' + typeCheck + '. Do not know how to handle.');
             }
 
             res.end();
@@ -356,8 +368,8 @@ app.route('/api/modelupload')
         //     });
         // }
 
-        res.redirect('back');
-        next();
+        // res.redirect('back');
+        // return();
     });
 
 // var server = http.createServer(app);

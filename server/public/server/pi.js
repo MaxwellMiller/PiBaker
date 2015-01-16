@@ -1,5 +1,10 @@
 var ipmap = {};
 
+alert_head = '<div class="alert alert-danger alert-dismissible fade in" style="position: absolute; top: 0px; width: 100%; text-align: center; z-index: 2000;" role="alert">' +
+                '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
+                '<strong>Error!</strong><span style="padding-left: 5px">'
+alert_foot = '</span></div>'
+
 $(document).on('change', '.btn-file :file', function() {
     var input = $(this),
         numFiles = input.get(0).files ? input.get(0).files.length : 1,
@@ -9,6 +14,13 @@ $(document).on('change', '.btn-file :file', function() {
 });
 
 $(document).ready(function() {
+
+    // Turn the submit event into an ajax call, so we can get a response from the server
+    $('#fileupload').ajaxForm({
+        error: modeluploadError,
+        clearForm: true
+    });
+
     // When a file is selected, display it in the text box
     $('.btn-file :file').on('fileselect', function(event, numFiles, label) {
         var input = $(this).parents('.input-group').find(':text');
@@ -16,10 +28,10 @@ $(document).ready(function() {
         input.val(label);
     });
 
+    // Do some pre-validation before submit is clicked, and prevent the action if there are issues
     $('#print-submit').click(function(e) {
         if ($('#print-target').attr('value') === undefined) {
-            // TODO: make a pretty error message
-            console.log('Select a printer');
+            alertUser('You must select a printer first.');
             e.preventDefault();
         }
     });
@@ -30,8 +42,7 @@ $(document).ready(function() {
         var pIP = $('#add-printer-ip')[0].value;
 
         if (pName == '' || pIP == '') {
-            // TODO: Make pretty error
-            console.log('Must supply a name and IP address.');
+            alertUser('Must supply a name and IP address.');
             return;
         }
 
@@ -41,6 +52,10 @@ $(document).ready(function() {
             data: JSON.stringify({printerName: pName, printerIP: pIP}),
             dataType: 'json',
             contentType: 'application/json'
+        }).complete(function(data) { // is there a way to only call this when there is an error?
+            if (data.status != 200) {
+                alertUser(data.responseText);
+            }
         });
 
         dismissAddPrinterDialog();
@@ -65,12 +80,30 @@ $(document).ready(function() {
             data: JSON.stringify({oldPrinterName: opName, newPrinterName: npName, printerIP: pIP}),
             dataType: 'json',
             contentType: 'application/json'
+        }).complete(function(data) { // is there a way to only call this when there is an error?
+            if (data.status != 200) {
+                alertUser(data.responseText);
+            }
         });
 
         dismissEditPrinterDialog();
         populatePrinterList();
     });
 });
+
+function alertUser(msg) {
+    var html = alert_head + msg + alert_foot;
+
+    var element = document.createElement('div');
+    element.innerHTML = html;
+
+    document.body.appendChild(element);
+}
+
+function modeluploadError(res, status) {
+    alertUser(res.responseText);
+    $('#fileupload')[0].reset();
+}
 
 // Remove the Add Printer dialog and clear data
 function dismissAddPrinterDialog() {
@@ -183,6 +216,10 @@ function populatePrinterList() {
                 setCurrentPrinter(e.currentTarget.innerText);
             }
         });
+    }).complete(function(data) { // is there a way to only call this when there is an error?
+        if (data.status != 200) {
+            alertUser(data.responseText);
+        }
     });
 }
 
