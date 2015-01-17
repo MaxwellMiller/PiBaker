@@ -434,14 +434,21 @@ app.route('/api/modelupload')
                         fs.unlinkSync(filepath);
                     }
                 });
+
+                res.end('Your model is uploaded and being sliced.');
+                return;
             }
             else if (typeCheck == 2) {
 
                 if (settings['is_server'] == 'true') {
+                    res.end('Your g-code is being forwarded to ' + fields.target + '.');
                     forwardModelToPi(filepath, pIP);
+                    return;
                 }
                 else {
+                    res.end('Your print should begin shortly.');
                     kickoffPrint();
+                    return;
                 }
             }
             else {
