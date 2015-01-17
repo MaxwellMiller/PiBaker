@@ -15,9 +15,7 @@ $(document).on('change', '.btn-file :file', function() {
 
 $(document).ready(function() {
 
-    var bar = $('.bar');
-    var percent = $('.percent');
-    var status = $('#status');
+    var bar = $('#uploadprogress');
 
     // Turn the submit event into an ajax call, so we can get a response from the server
     $('#fileupload').ajaxForm({
@@ -28,7 +26,6 @@ $(document).ready(function() {
         uploadProgress: function(event, position, total, percentComplete) {
             var percentVal = percentComplete + '%';
             bar.width(percentVal);
-            percent.html(percentVal);
         },
         clearForm: true
     });

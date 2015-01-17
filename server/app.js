@@ -111,6 +111,7 @@ function lookupIP(name) {
     return undefined;
 }
 
+// Sends the model at filepath to the server at ipaddr
 function forwardModelToPi(filepath, ipaddr) {
     var formData = {
         model: fs.createReadStream(filepath)
@@ -129,6 +130,10 @@ function forwardModelToPi(filepath, ipaddr) {
             console.log('Error sending G-code to ' + ipaddr);
             console.log(err);
         }
+
+        // After the file is forwarded to the printer, delete our copy (even on error)
+        // TODO: On error, retry a number of times.
+        fs.unlinkSync(filepath);
     });
 }
 
