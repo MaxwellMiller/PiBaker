@@ -115,6 +115,8 @@ function forwardModelToPi(filepath, ipaddr) {
         model: fs.createReadStream(filepath)
     }
 
+    ipaddr = 'http://' + ipaddr + '/api/modelupload';
+
     request.post({
         url: ipaddr,
         formData: formData
@@ -127,6 +129,10 @@ function forwardModelToPi(filepath, ipaddr) {
             console.log(err);
         }
     });
+}
+
+function kickoffPrint() {
+    console.log('Start print job here');
 }
 
 // Returns, as JSON, the list of possible print targets and whether editing is currently locked.
@@ -319,7 +325,7 @@ app.route('/api/modelupload')
                 typeCheck = 0;
 
             // Can only upload models to the intermediate server, not to the client
-            if (settings['is_server'] === 'true') {
+            if (settings['is_server'] == 'true') {
                 for (var i in validModelFormats) {
                     if (('.' + validModelFormats[i]) === filext) {
                         typeCheck = 1;
@@ -375,8 +381,12 @@ app.route('/api/modelupload')
                 });
             }
             else if (typeCheck == 2) {
-
-                forwardModelToPi(filepath, pIP);
+                if (settings['is_server'] == 'true') {
+                    forwardModelToPi(filepath, pIP);
+                }
+                else {
+                    kickoffPrint();
+                }
             }
             else {
 
