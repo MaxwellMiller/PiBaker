@@ -13,7 +13,8 @@ var express = require('express'),
 // If a config file exists, it will override these
 var settings = {
     'is_server' : 'false',
-    'locked'    : 'false'
+    'locked'    : 'false',
+    'log'       : 'true'
 }
 
 // Contains an in-memory list of the connected printers
@@ -167,9 +168,17 @@ app.route('/api/regprinter')
         pName = pName.trim();
         pIP = pIP.trim();
 
+        if (settings['log'] == 'true') {
+            console.log('Registering printer {name: ' + pName + ', ip: ' + pIP + '}');
+        }
+
         // Check to see if this printer conflicts with any printers already registered
         for (var i in connectedPrinters) {
             if (connectedPrinters[i].name == pName) {
+
+                if (settings['log'] == 'true') {
+                    console.log('Printer name already in use {name: ' + pName + ', ip: ' + pIP + '}');
+                }
 
                 res.status(400);
                 res.end('Printer name already in use.');
@@ -178,14 +187,22 @@ app.route('/api/regprinter')
 
             if (connectedPrinters[i].ip == pIP) {
 
+                if (settings['log'] == 'true') {
+                    console.log('IP address already registered {name: ' + pName + ', ip: ' + pIP + '}');
+                }
+
                 res.status(400);
-                res.end('Printer is already registered.');
+                res.end('Printer is already registered, but is named ' + connectedPrinters[i].name + '.');
                 return;
             }
         }
 
         connectedPrinters.push({name: pName, ip: pIP});
         writeConnectedPrinters();
+
+        if (settings['log'] == 'true') {
+            console.log('Successfully registered printer {name: ' + pName + ', ip: ' + pIP + '}');
+        }
 
         res.end();
     });
@@ -272,7 +289,10 @@ app.route('/api/delprinter')
 // Handle uploading posted models, or routing g-code
 app.route('/api/modelupload')
     .post(function(req, res, next) {
-        var fstream;
+
+        if (settings['log'] == 'true') {
+            console.log('/api/modelupload is being posted to.');
+        }
 
         var form = new formidable.IncomingForm();
         form.uploadDir = __dirname + '/models';
@@ -281,6 +301,11 @@ app.route('/api/modelupload')
 
             // Verify a file was actually uploaded
             if (files.model == undefined || files.model.path == undefined) {
+
+                if (settings['log'] == 'true') {
+                    console.log('No file uploaded.');
+                }
+
                 res.status(400);
                 res.end('No file provided.');
             }
@@ -293,14 +318,16 @@ app.route('/api/modelupload')
 
             if (pIP === undefined) {
 
+                if (settings['log'] == 'true') {
+                    console.log('IP address is undefined {name: ' + pName + ', file: ' + filepath + '}');
+                }
+
                 fs.unlinkSync(filepath);
 
                 res.status(400);
                 res.end('Printer is not registered with the server');
                 return;
             }
-
-            console.log('Initiating print to ' + pName + ' at ' + pIP);
 
             // Currently filename is a full path, remove the path (need to cover windows and unix style paths)
             if (filename.lastIndexOf('/') != -1) {
@@ -312,6 +339,10 @@ app.route('/api/modelupload')
 
             // Make sure the original file had an extension
             if (files.model.name.indexOf('.') == -1 || files.model.name.length <= 4) {
+
+                if (settings['log'] == 'true') {
+                    console.log('No file extension found {target: ' + pName + ', ip: ' + pIP + ', filename: ' + files.model.name + '}');
+                }
 
                 fs.unlinkSync(filepath);
 
@@ -347,6 +378,13 @@ app.route('/api/modelupload')
                 return;
             }
 
+            if (settings['is_server'] == 'true') {
+                console.log('Uploaded file to server {target:' + pName + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}');
+            }
+            else {
+                console.log('Uploaded file to printer {target: '+ pName + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}')
+            }
+
 
             // filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
 
@@ -361,6 +399,11 @@ app.route('/api/modelupload')
 
             // If the file is a 3D model, slice it
             if (typeCheck == 1) {
+
+                if (settings['is_server'] == 'true') {
+                    console.log('Slicing model {target:' + pName + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
+                }
+
                 // Execute slic3r with the model as an arguement
                 // Register a callback to forward the model to the client
                 exec('/bin/slic3r/bin/slic3r ' + __dirname + '/models/' + filename + filext,
@@ -369,18 +412,27 @@ app.route('/api/modelupload')
                     // If the process terminated properly, forward
                     if (error == null) {
 
+                        if (settings['is_server'] == 'true') {
+                            console.log('Successfully sliced model {target:' + pName + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
+                        }
+
                         fs.unlinkSync(filepath);
 
                         filepath = __dirname + '/models/' + filename + '.gcode';
                         forwardModelToPi(filepath, pIP);
                     }
                     else {
-                        console.log('Error slicing the uploaded model');
+
+                        if (settings['is_server'] == 'true') {
+                            console.log('Error slicing uploaded model {target:' + pName + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
+                        }
+
                         fs.unlinkSync(filepath);
                     }
                 });
             }
             else if (typeCheck == 2) {
+
                 if (settings['is_server'] == 'true') {
                     forwardModelToPi(filepath, pIP);
                 }
