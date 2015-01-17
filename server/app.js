@@ -312,14 +312,13 @@ app.route('/api/modelupload')
 
             var filepath = files.model.path,
                 filename = files.model.path,
-                pName = fields.target,
                 pIP = lookupIP(fields.target);
 
 
-            if (pIP === undefined) {
+            if (settings['is_server'] == 'true' && pIP == undefined) {
 
                 if (settings['log'] == 'true') {
-                    console.log('IP address is undefined {name: ' + pName + ', file: ' + filepath + '}');
+                    console.log('IP address is undefined {target: ' + fields.target + ', file: ' + filepath + '}');
                 }
 
                 fs.unlinkSync(filepath);
@@ -341,7 +340,7 @@ app.route('/api/modelupload')
             if (files.model.name.indexOf('.') == -1 || files.model.name.length <= 4) {
 
                 if (settings['log'] == 'true') {
-                    console.log('No file extension found {target: ' + pName + ', ip: ' + pIP + ', filename: ' + files.model.name + '}');
+                    console.log('No file extension found {target: ' + fields.target + ', ip: ' + pIP + ', filename: ' + files.model.name + '}');
                 }
 
                 fs.unlinkSync(filepath);
@@ -379,10 +378,10 @@ app.route('/api/modelupload')
             }
 
             if (settings['is_server'] == 'true') {
-                console.log('Uploaded file to server {target:' + pName + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}');
+                console.log('Uploaded file to server {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}');
             }
             else {
-                console.log('Uploaded file to printer {target: '+ pName + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}')
+                console.log('Uploaded file to printer {target: '+ fields.target + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}')
             }
 
 
@@ -401,7 +400,7 @@ app.route('/api/modelupload')
             if (typeCheck == 1) {
 
                 if (settings['is_server'] == 'true') {
-                    console.log('Slicing model {target:' + pName + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
+                    console.log('Slicing model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
                 }
 
                 // Execute slic3r with the model as an arguement
@@ -413,7 +412,7 @@ app.route('/api/modelupload')
                     if (error == null) {
 
                         if (settings['is_server'] == 'true') {
-                            console.log('Successfully sliced model {target:' + pName + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
+                            console.log('Successfully sliced model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
                         }
 
                         fs.unlinkSync(filepath);
@@ -424,7 +423,7 @@ app.route('/api/modelupload')
                     else {
 
                         if (settings['is_server'] == 'true') {
-                            console.log('Error slicing uploaded model {target:' + pName + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
+                            console.log('Error slicing uploaded model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
                         }
 
                         fs.unlinkSync(filepath);
