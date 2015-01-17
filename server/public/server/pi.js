@@ -15,9 +15,21 @@ $(document).on('change', '.btn-file :file', function() {
 
 $(document).ready(function() {
 
+    var bar = $('.bar');
+    var percent = $('.percent');
+    var status = $('#status');
+
     // Turn the submit event into an ajax call, so we can get a response from the server
     $('#fileupload').ajaxForm({
-        error: modeluploadError,
+        error: function(res, status) {
+            alertUser(res.responseText);
+            $('#fileupload')[0].reset();
+        },
+        uploadProgress: function(event, position, total, percentComplete) {
+            var percentVal = percentComplete + '%';
+            bar.width(percentVal);
+            percent.html(percentVal);
+        },
         clearForm: true
     });
 
@@ -98,11 +110,6 @@ function alertUser(msg) {
     element.innerHTML = html;
 
     document.body.appendChild(element);
-}
-
-function modeluploadError(res, status) {
-    alertUser(res.responseText);
-    $('#fileupload')[0].reset();
 }
 
 // Remove the Add Printer dialog and clear data
