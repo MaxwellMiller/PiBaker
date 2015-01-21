@@ -9,6 +9,14 @@
         
         <link rel="stylesheet" href="share/pi.css">
         <script src="share/pi.js"></script>
+
+        <script>
+            var is_server = true;
+            
+            window.onload = function() {
+                populatePrinterList();
+            }
+        </script>
     </head>
     <title>PiBaker Wireless Print</title>
     <body>

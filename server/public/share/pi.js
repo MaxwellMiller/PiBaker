@@ -10,6 +10,8 @@ success_head = '<div class="alert alert-success alert-dismissible fade in" style
                 '<strong>Success!</strong><span style="padding-left: 5px">'
 success_foot = '</span></div>'
 
+is_server = false;
+
 $(document).on('change', '.btn-file :file', function() {
     var input = $(this),
         numFiles = input.get(0).files ? input.get(0).files.length : 1,
@@ -50,10 +52,14 @@ $(document).ready(function() {
 
     // Do some pre-validation before submit is clicked, and prevent the action if there are issues
     $('#print-submit').click(function(e) {
-        if ($('#print-target').attr('value') === undefined) {
-            alertUser(400, 'You must select a printer first.');
-            e.preventDefault();
+
+        if (is_server == true) {
+            if ($('#print-target').attr('value') === undefined) {
+                alertUser(400, 'You must select a printer first.');
+                e.preventDefault();
+            }
         }
+
     });
 
     // Register an onclick event to register a new printer from the add modal
@@ -239,8 +245,4 @@ function populatePrinterList() {
             alertUser(data.status, data.responseText);
         }
     });
-}
-
-window.onload = function() {
-    populatePrinterList();
 }
