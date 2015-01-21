@@ -145,7 +145,19 @@ function kickoffPrint() {
 // Returns, as JSON, the list of possible print targets and whether editing is currently locked.
 app.route('/api/getprinters')
     .get(function(req, res, next) {
-        res.json({printers : connectedPrinters, locked : settings['locked']});
+        if (settings['locked'] != 'true') {
+            res.json({printers : connectedPrinters, locked : settings['locked']});
+        }
+        // If our server is locked, remove ip addresses since they cannot be used by the client anyway
+        // This does involve a lot more processing, but it is probably worth it for security
+        else {
+            var ret = [];
+            for (var i in connectedPrinters) {
+                ret.push({name: connectedPrinters[i].name, ip: ''})
+            }
+
+            res.json({printers : ret, locked : settings['locked']});
+        }
         next();
     });
 
@@ -215,6 +227,7 @@ app.route('/api/regprinter')
 
 app.route('/api/editprinter')
     .post(function(req, res, next) {
+
         var npName = req.body.newPrinterName,
             opName = req.body.oldPrinterName,
             pIP = req.body.printerIP;
