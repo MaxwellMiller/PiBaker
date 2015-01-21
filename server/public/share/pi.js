@@ -93,8 +93,7 @@ $(document).ready(function() {
             pIP = $('#edit-printer-ip')[0].value;
 
         if (npName == '' || pIP == '') {
-            // TODO: Make pretty error
-            console.log('Must supply a name and IP address.');
+            alertUser(0, 'Must supply a name and IP address.');
             return;
         }
 
@@ -113,6 +112,8 @@ $(document).ready(function() {
     });
 });
 
+// Assumes status is a standard http status
+// If you want to call it without an http status use 0 for 'Error' and 200 for 'Success'
 function alertUser(status, msg) {
     var html = '';
 
@@ -222,8 +223,9 @@ function populatePrinterList() {
 
 
         // If there is at least one printer, set it as the default
+        // If the list is locked for editing, the seperator and add printer button are not there
         var plist = $('#printer-select')[0];
-        if (plist.children.length > 2) {
+        if (plist.children.length > (data.locked == 'true' ? 0 : 2)) {
             setCurrentPrinter($('#printer-select')[0].children[0].children[0].text);
         }
         // If there are no printers in the list current, default to 'Select Printer' (to allow the user to click 'Add Printer')
