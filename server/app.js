@@ -57,6 +57,7 @@ if (settings['is_server'] === 'true') {
 else {
     app.use(express.static(__dirname + '/public/client/'));
 }
+app.use('/share', express.static(__dirname + '/public/share/'));
 
 
 var validModelFormats = ['stl', 'obj', 'amf']

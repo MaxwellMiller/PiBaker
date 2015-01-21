@@ -23,3 +23,7 @@ input[readonly] {
     background-color: white !important;
     cursor: text !important;
 }
+
+#printer-select li a {
+    cursor: default;
+}

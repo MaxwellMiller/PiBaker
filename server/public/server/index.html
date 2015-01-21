@@ -7,8 +7,8 @@
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css">
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
         
-        <link rel="stylesheet" href="pi.css">
-        <script src="pi.js"></script>
+        <link rel="stylesheet" href="share/pi.css">
+        <script src="share/pi.js"></script>
     </head>
     <title>PiBaker Wireless Print</title>
     <body>
@@ -18,17 +18,23 @@
                 <div style="width: 100%; padding-top: 40px;">
                     <form id="fileupload" action="/api/modelupload" method="post" enctype="multipart/form-data">
 
+                        <!-- Browse Box -->
                         <div class="input-group col-xs-12 col-sm-8">
 
+                            <!-- Browse Button -->
                             <span class="input-group-btn">
                                 <span class="btn btn-primary btn-file">
                                     Browse: <input type="file" name="model" id="model"></input>
                                 </span>
                             </span>
 
+                            <!-- Text Display -->
                             <input type="text" class="form-control" readonly></input>
+
+                            <!-- Hold selected printer to submit -->
                             <input type="hidden" id="print-target" name="target"></input>
 
+                            <!-- Printer Select -->
                             <div class="input-group-btn" role="group">
                                 <button type="button" id="printer-select-display" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
                                     <span class="caret"></span>
@@ -41,12 +47,14 @@
 
                         </div>
 
+                        <!-- Progress Bar -->
                         <div class="col-xs-12 col-sm-8 col-sm-offset-2">
                             <div class="progress" style="height: 3px;">
                               <div id="uploadprogress" class="progress-bar progress-bar-success" role="progressbar" style="width: 0%;"></div>
                             </div>
                         </div>
 
+                        <!-- Submit Button -->
                         <input id="print-submit" type="submit" name="submit" value="submit" class="btn btn-primary col-xs-4 col-xs-offset-4 col-sm-2 col-sm-offset-5" style="margin-top: 39px;"></input>
 
                     </form>
