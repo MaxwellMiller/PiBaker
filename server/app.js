@@ -6,8 +6,10 @@ var express = require('express'),
     ws = require('ws'),
     http = require('http'),
     request = require('request'),
-    formidable = require('formidable')
+    formidable = require('formidable'),
+    url = require('url'),
     util = require('util');
+
 
 // Populate with default settings
 // If a config file exists, it will override these
@@ -113,9 +115,15 @@ function lookupIP(name) {
 }
 
 // Sends the model at filepath to the server at ipaddr
-function forwardModelToPi(filepath, ipaddr) {
+// TODO: Probably should also include a callback param
+function forwardModel(filepath, ipaddr, optional) {
     var formData = {
         model: fs.createReadStream(filepath)
+    }
+
+    if (optional != undefined) {
+        for(i in optional)
+            formData[i] = optional[i];
     }
 
     ipaddr = 'http://' + ipaddr + '/api/modelupload';
@@ -125,16 +133,39 @@ function forwardModelToPi(filepath, ipaddr) {
         formData: formData
     }, function(err, resp, body) {
         if (err == null) {
-            console.log('G-code sent to ' + ipaddr);
+            console.log('Model sent to ' + ipaddr);
         }
         else {
-            console.log('Error sending G-code to ' + ipaddr);
+            console.log('Error sending model to ' + ipaddr);
             console.log(err);
         }
 
         // After the file is forwarded to the printer, delete our copy (even on error)
         // TODO: On error, retry a number of times.
         fs.unlinkSync(filepath);
+    });
+}
+
+function downloadAndProcess(d_url, ipaddr) {
+    var options = {
+        host: url.parse(d_url).host,
+        port: 80,
+        path: url.parse(d_url).pathname
+    }
+
+    // TODO: Does this sanitize at all?
+    var file_name = url.parse(d_url).pathname.split('/').pop();
+    var file = fs.createWriteStream('tmp/' + file_name);
+
+    http.get(options, function(res) {
+        res.on('data', function(data) {
+            file.write(data);
+        }).on('end', function() {
+            file.end();
+            console.log(__dirname + '/tmp/' + file_name + ' downloaded, transfering to /api/modelupload');
+
+            forwardModel(__dirname + '/tmp/' + file_name, 'localhost:8080', {target: ipaddr, type: 0});
+        });
     });
 }
 
@@ -318,8 +349,16 @@ app.route('/api/modelupload')
 
         form.parse(req, function(err, fields, files) {
 
+            if (fields.type == 1) {
+                // TODO: Validate target
+                downloadAndProcess(fields.url, fields.target);
+
+                res.end();
+                return;
+            }
+
             // Verify a file was actually uploaded
-            if (files.model == undefined || files.model.path == undefined) {
+            if (files == undefined || files.model == undefined || files.model.path == undefined) {
 
                 if (settings['log'] == 'true') {
                     console.log('No file uploaded.');
@@ -327,6 +366,7 @@ app.route('/api/modelupload')
 
                 res.status(400);
                 res.end('No file provided.');
+                return;
             }
 
             var filepath = files.model.path,
@@ -437,7 +477,7 @@ app.route('/api/modelupload')
                         fs.unlinkSync(filepath);
 
                         filepath = __dirname + '/models/' + filename + '.gcode';
-                        forwardModelToPi(filepath, pIP);
+                        forwardModel(filepath, pIP);
                     }
                     else {
 
@@ -456,7 +496,7 @@ app.route('/api/modelupload')
 
                 if (settings['is_server'] == 'true') {
                     res.end('Your g-code is being forwarded to ' + fields.target + '.');
-                    forwardModelToPi(filepath, pIP);
+                    forwardModel(filepath, pIP);
                     return;
                 }
                 else {

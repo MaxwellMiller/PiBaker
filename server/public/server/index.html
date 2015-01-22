@@ -12,7 +12,7 @@
 
         <script>
             var is_server = true;
-            
+
             window.onload = function() {
                 populatePrinterList();
             }
@@ -36,11 +36,24 @@
                                 </span>
                             </span>
 
+                            <!-- Paste a link -->
+                            <span class="input-group-btn">
+                                <button type="button" class="btn btn-default" id="input-link" style="border-radius: 0px !important;"  data-toggle="modal" data-target="#print-url-modal">
+                                  <span class="glyphicon glyphicon-link" aria-hidden="true" style=""></span>&nbsp;
+                                </button>
+                            </span>
+
                             <!-- Text Display -->
-                            <input type="text" class="form-control" readonly></input>
+                            <input type="text" class="form-control" id="upload-text-display" readonly></input>
 
                             <!-- Hold selected printer to submit -->
                             <input type="hidden" id="print-target" name="target"></input>
+
+                            <!-- Hold the input url to submit, if a url is being sent -->
+                            <input type="hidden" id="print-url" name="url"></input>
+
+                            <!-- Says if this is a file upload (0) or url upload (1) -->
+                            <input type="hidden" id="print-type" name="type"></input>
 
                             <!-- Printer Select -->
                             <div class="input-group-btn" role="group">
@@ -70,11 +83,6 @@
             </div>
         </center>
 
-<!--         <div class="progress" style="position:relative; width:400px; border: 1px solid #ddd; padding: 1px; border-radius: 3px;">
-            <div class="bar" style="background-color: #B4F5B4; width:0%; height:20px; border-radius: 3px;"></div >
-            <div class="percent" style="position:absolute; display:inline-block; top:3px; left:48%;">0%</div >
-        </div> -->
-
         <!-- Even though these two modals are basically the same, they are replicated with different id's so that adding a
         printer and editing one can be differentiated (to avoid unintentional overwriting of printers by using the same name) -->
         <div class="modal fade" id="add-printer-modal" tabindex="-1" role="dialog" aria-labelledby="add-printer" aria-hidden="true">
@@ -82,7 +90,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                        <h4 class="modal-title" id="myModalLabel">Add Printer</h4>
+                        <h4 class="modal-title">Add Printer</h4>
                     </div>
 
                     <div class="modal-body">
@@ -105,7 +113,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                        <h4 class="modal-title" id="myModalLabel">Edit Printer</h4>
+                        <h4 class="modal-title">Edit Printer</h4>
                     </div>
 
                     <div class="modal-body">
@@ -120,6 +128,30 @@
                         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary" id="edit-printer-submit">Submit</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="print-url-modal" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title">Print From URL</h4>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="input-group" style="width: 100%">
+                            <input type="text" class="form-control" placeholder="URL" id="download-url"></input>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="print-url-submit">Submit</button>
+                    </div>
+
                 </div>
             </div>
         </div>

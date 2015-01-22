@@ -110,6 +110,19 @@ $(document).ready(function() {
         dismissEditPrinterDialog();
         populatePrinterList();
     });
+
+    // Register an onclick event to set a url as the upload target
+    $('#print-url-submit').click(function(e) {
+        var url = $('#download-url')[0].value.trim();
+
+        if (url != '') {
+            $('#print-url').val(url);
+            $('#upload-text-display').val(url);
+            $('#print-type').val(1);
+        }
+
+        dismissPrintURLDialog();
+    });
 });
 
 // Assumes status is a standard http status
@@ -142,6 +155,12 @@ function dismissEditPrinterDialog() {
     $('#edit-printer-modal').modal('hide');
     $('#edit-printer-name')[0].value = '';
     $('#edit-printer-ip')[0].value = '';
+}
+
+// Remove the Print from URL dialog and clear data
+function dismissPrintURLDialog() {
+    $('#print-url-modal').modal('hide');
+    $('#download-url')[0].value = '';
 }
 
 function setCurrentPrinter(name) {
@@ -220,7 +239,6 @@ function populatePrinterList() {
                 }
             });
         }
-
 
         // If there is at least one printer, set it as the default
         // If the list is locked for editing, the seperator and add printer button are not there
