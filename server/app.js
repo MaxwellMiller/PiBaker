@@ -59,7 +59,6 @@ if (fs.existsSync('data/config')) {
                 break;
 
             case 'slicing_server':
-                // TODO: Verify IP
                 value = valueTxt;
                 break;
 
@@ -165,16 +164,19 @@ function lookupIP(name) {
 }
 
 // Sends the model at filepath to the server at ipaddr
-// TODO: Probably should also include a callback param
-function forwardModel(filepath, ipaddr, optional) {
+function forwardModel(filepath, ipaddr, retryAttempts, optionalFormData) {
     var formData = {
         model: fs.createReadStream(filepath)
     }
 
-    if (optional != undefined) {
+    if (retryAttempts == undefined) {
+        retryAttempts = 0;
+    }
 
-        for (i in optional) {
-            formData[i] = optional[i];
+    if (optionalFormData != undefined) {
+
+        for (i in optionalFormData) {
+            formData[i] = optionalFormData[i];
         }
 
     }
@@ -182,22 +184,32 @@ function forwardModel(filepath, ipaddr, optional) {
     ipaddr = 'http://' + ipaddr + '/api/modelupload';
 
     request.post({
-        url: ipaddr,
-        formData: formData
+        url: url,
+        formData: data
     }, function(err, resp, body) {
 
         if (err == null) {
-            console.log('Model sent to ' + ipaddr);
+
+            if (settings['log']) {
+                console.log('Model sent to ' + ipaddr);
+            }
+
+            fs.unlinkSync(filepath);
         }
         else {
-            console.log('Error sending model to ' + ipaddr);
-            console.log(err);
+
+            if (settings['log']) {
+                if (retryAttempts <= 0) {
+                    console.log('Error sending model to ' + ipaddr);
+                    console.log(err);
+
+                    fs.unlinkSync(filepath);
+                }
+                else {
+                    postModel(url, data, retryAttempts - 1);
+                }
+            }
         }
-
-        // After the file is forwarded to the printer, delete our copy (even on error)
-        // TODO: On error, retry a number of times.
-        fs.unlinkSync(filepath);
-
     });
 }
 
@@ -221,7 +233,7 @@ function downloadAndProcess(d_url, ipaddr) {
             file.end();
             console.log(__dirname + '/tmp/' + file_name + ' downloaded, transfering to /api/modelupload');
 
-            forwardModel(__dirname + '/tmp/' + file_name, 'localhost:8080', {target: ipaddr, type: 0});
+            forwardModel(__dirname + '/tmp/' + file_name, 'localhost:8080', 3, {target: ipaddr, type: 0});
         
         });
     });
@@ -581,7 +593,7 @@ app.route('/api/modelupload')
                         fs.unlinkSync(filepath);
 
                         filepath = __dirname + '/models/' + filename + '.gcode';
-                        forwardModel(filepath, pIP);
+                        forwardModel(filepath, pIP, 3);
                     }
                     else {
 
@@ -600,7 +612,7 @@ app.route('/api/modelupload')
 
                 if (settings['is_server']) {
                     res.end('Your g-code is being forwarded to ' + fields.target + '.');
-                    forwardModel(filepath, pIP);
+                    forwardModel(filepath, pIP, 3);
                     return;
                 }
                 else {

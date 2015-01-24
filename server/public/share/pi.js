@@ -27,12 +27,10 @@ $(document).ready(function() {
     // Turn the submit event into an ajax call, so we can get a response from the server
     $('#fileupload').ajaxForm({
         error: function(res, status) {
-            // TODO: pass actual status, what does the status param look like?
-            alertUser(400, res.responseText);
+            alertUser(res.status, res.responseText);
             $('#fileupload')[0].reset();
         },
         success: function(res, status) {
-            // TODO: pass actual status, what does the status param look like?
             alertUser(200, res);
             $('#fileupload')[0].reset();
         },
@@ -231,8 +229,14 @@ function populatePrinterList() {
                     populatePrinterList();
                 }
                 else if (action === 'editprinter') {
+
+                    if (ipmap[pName] == undefined) {
+                        alertUser(0, 'Invalid printer selected.');
+                        populatePrinterList();
+                        return;
+                    }
+
                     $('#edit-printer-name')[0].value = pName;
-                    // TODO: What happens if this isn't in the map?
                     $('#edit-printer-ip')[0].value = ipmap[pName];
                     $('#edit-printer-oname')[0].value = pName;
                     $('#edit-printer-modal').modal('show');
