@@ -14,10 +14,11 @@ var express = require('express'),
 // Populate with default settings
 // If a config file exists, it will override these
 var settings = {
-    'is_server'         : 'false',
-    'locked'            : 'false',
-    'log'               : 'true',
-    'slicing_server'    : undefined
+    'is_server'         : false,
+    'locked'            : false,
+    'log'               : true,
+    'slicing_server'    : undefined,
+    'port'              : 8080
 }
 
 // Contains an in-memory list of the connected printers
@@ -38,15 +39,49 @@ if (fs.existsSync('data/config')) {
     var tok = data.split(/\s+/);
 
     // If there was trailing whitespace, remove the empty element
-    if(tok.length > 0 && tok[tok.length-1] == '')
+    if (tok.length > 0 && tok[tok.length-1] == '')
         tok.pop();
 
     var ret = [];
 
-    if(tok.length < 2) return;
+    if (tok.length < 2) return;
 
-    for(var i=0; i<tok.length; i+=2) {
-        settings[tok[i]] = tok[i+1];
+    for (var i = 0; i < tok.length; i += 2) {
+        var key = tok[i].trim().toLowerCase(),
+            valueTxt = tok[i+1].trim().toLowerCase()
+            value = undefined;
+
+        switch (key) {
+            case 'is_server':
+            case 'locked':
+            case 'log':
+                value = toBool(valueTxt);
+                break;
+
+            case 'slicing_server':
+                // TODO: Verify IP
+                value = valueTxt;
+                break;
+
+            case 'port':
+                value = parseInt(value);
+
+                if (value == NaN) {
+                    value = undefined;
+                }
+
+                break;
+
+            default:
+                break;
+        }
+
+        if (value == undefined) {
+            console.log('Unexpected config entry ' + key + ', ' + valueTxt);
+            continue;
+        }
+
+        settings[key] = value;
     }
 }
 
@@ -54,7 +89,7 @@ if (fs.existsSync('data/config')) {
 var app = express();
 app.use(bodyParser.json());
 
-if (settings['is_server'] === 'true') {
+if (settings['is_server']) {
     app.use(express.static(__dirname + '/public/server/'));
 }
 else {
@@ -64,6 +99,19 @@ app.use('/share', express.static(__dirname + '/public/share/'));
 
 
 var validModelFormats = ['stl', 'obj', 'amf']
+
+function toBool(string) {
+    switch (string.toLowerCase()) {
+        case 'true': case 'yes': case '1':
+            return true;
+        case 'false': case 'no': case '0':
+            return false;
+        default:
+            return undefined;
+    }
+
+    return undefined;
+}
 
 function loadPrinterList() {
     fs.exists('data/printers', function(exists) {
@@ -106,6 +154,7 @@ function writeConnectedPrinters() {
 
 // Given a printer name, return the corresponding IP address, or undefined if it is not registered
 function lookupIP(name) {
+
     for (var i in connectedPrinters) {
         if (name === connectedPrinters[i].name) {
             return connectedPrinters[i].ip;
@@ -123,8 +172,11 @@ function forwardModel(filepath, ipaddr, optional) {
     }
 
     if (optional != undefined) {
-        for(i in optional)
+
+        for (i in optional) {
             formData[i] = optional[i];
+        }
+
     }
 
     ipaddr = 'http://' + ipaddr + '/api/modelupload';
@@ -133,6 +185,7 @@ function forwardModel(filepath, ipaddr, optional) {
         url: ipaddr,
         formData: formData
     }, function(err, resp, body) {
+
         if (err == null) {
             console.log('Model sent to ' + ipaddr);
         }
@@ -144,6 +197,7 @@ function forwardModel(filepath, ipaddr, optional) {
         // After the file is forwarded to the printer, delete our copy (even on error)
         // TODO: On error, retry a number of times.
         fs.unlinkSync(filepath);
+
     });
 }
 
@@ -159,12 +213,16 @@ function downloadAndProcess(d_url, ipaddr) {
 
     http.get(options, function(res) {
         res.on('data', function(data) {
+
             file.write(data);
+
         }).on('end', function() {
+
             file.end();
             console.log(__dirname + '/tmp/' + file_name + ' downloaded, transfering to /api/modelupload');
 
             forwardModel(__dirname + '/tmp/' + file_name, 'localhost:8080', {target: ipaddr, type: 0});
+        
         });
     });
 }
@@ -173,23 +231,45 @@ function kickoffPrint() {
     console.log('Start print job here');
 }
 
+// Returns a sanitized version of the passed in name
+// if it is invalid and unfixable, return false
+function validateAndSanitizePrinterName(name) {
+
+    name = name.replace(/[^a-z0-9_\-. ]/gi, '');
+
+    if (name == undefined   ||
+        name == ''          ||
+        name.length > 20) {
+
+        return undefined
+    }
+
+    return name;
+}
+
+// Returns an object with one param: ip, which contains the ip address the request was made from
 app.route('/api/getip')
     .get(function(req, res, next) {
+
         res.json({ip: req.connection.remoteAddress});
         next();
+
     });
 
 // Returns, as JSON, the list of possible print targets and whether editing is currently locked.
 app.route('/api/getprinters')
     .get(function(req, res, next) {
-        if (settings['locked'] != 'true') {
+
+        if (!settings['locked']) {
             res.json({printers : connectedPrinters, locked : settings['locked']});
         }
 
         // If our server is locked, remove ip addresses since they cannot be used by the client anyway
         // This does involve a lot more processing, but it is probably worth it for security
         else {
+
             var ret = [];
+
             for (var i in connectedPrinters) {
                 ret.push({name: connectedPrinters[i].name, ip: ''})
             }
@@ -203,10 +283,11 @@ app.route('/api/getprinters')
 // Accepts a new printer name/IP pair as JSON and adds it to the internal list
 app.route('/api/regprinter')
     .post(function(req, res, next) {
-        var pName = req.body.printerName.trim(),
+
+        var pName = validateAndSanitizePrinterName(req.body.printerName),
             pIP = req.body.printerIP.trim();
 
-        if (settings['locked'] == 'true') {
+        if (settings['locked']) {
 
             res.status(400)
             res.end('Cannot add printer record. The server list is locked.');
@@ -214,18 +295,15 @@ app.route('/api/regprinter')
         }
 
         // TODO: These should be validating IP address and name more
-        if (pName === undefined || pName.trim() === '' ||
+        if (pName === undefined ||
             pIP   === undefined || pIP.trim()   === '') {
 
             res.status(400);
-            res.end('Must provide a name and IP address when adding a printer record.');
+            res.end('Invalid name and IP address.');
             return;
         }
 
-        pName = pName.trim();
-        pIP = pIP.trim();
-
-        if (settings['log'] == 'true') {
+        if (settings['log']) {
             console.log('Registering printer {name: ' + pName + ', ip: ' + pIP + '}');
         }
 
@@ -233,7 +311,7 @@ app.route('/api/regprinter')
         for (var i in connectedPrinters) {
             if (connectedPrinters[i].name == pName) {
 
-                if (settings['log'] == 'true') {
+                if (settings['log']) {
                     console.log('Printer name already in use {name: ' + pName + ', ip: ' + pIP + '}');
                 }
 
@@ -244,7 +322,7 @@ app.route('/api/regprinter')
 
             if (connectedPrinters[i].ip == pIP) {
 
-                if (settings['log'] == 'true') {
+                if (settings['log']) {
                     console.log('IP address already registered {name: ' + pName + ', ip: ' + pIP + '}');
                 }
 
@@ -257,7 +335,7 @@ app.route('/api/regprinter')
         connectedPrinters.push({name: pName, ip: pIP});
         writeConnectedPrinters();
 
-        if (settings['log'] == 'true') {
+        if (settings['log']) {
             console.log('Successfully registered printer {name: ' + pName + ', ip: ' + pIP + '}');
         }
 
@@ -267,28 +345,26 @@ app.route('/api/regprinter')
 app.route('/api/editprinter')
     .post(function(req, res, next) {
 
-        var npName = req.body.newPrinterName,
-            opName = req.body.oldPrinterName,
+        var npName = validateAndSanitizePrinterName(req.body.newPrinterName),
+            opName = validateAndSanitizePrinterName(req.body.oldPrinterName),
             pIP = req.body.printerIP;
 
-        if (settings['locked'] == 'true') {
+        if (settings['locked']) {
             res.status(400);
             res.end('Cannot edit printer record. The server list is locked.');
             return;
         }
 
-        // TODO: More validation checking here
-        if (npName === undefined || npName.trim() === '' ||
-            opName === undefined || opName.trim() === '' ||
+        // TODO: Break off these error messages
+        if (npName === undefined ||
+            opName === undefined ||
             pIP    === undefined || pIP.trim()    === '') {
 
             res.status(400);
-            res.end('Must provide an original name, new name, and new IP address when changing a printer record.');
+            res.end('Must provide a valid original name, new name, and new IP address when changing a printer record.');
             return;
         }
 
-        npName = npName.trim();
-        opName = opName.trim();
         pIP = pIP.trim();
 
         // Check to see if this printer conflicts with any printers already registered
@@ -309,19 +385,29 @@ app.route('/api/editprinter')
         res.status(400);
         res.end("Can't edit a printer that doesn't exist!");
         return;
+
     });
 
 
 // Removes a printer with the name sent
 app.route('/api/delprinter')
     .post(function(req, res, next) {
-        var pName = req.body.printerName;
+        var pName = validateAndSanitizePrinterName(req.body.printerName);
 
-        if (settings['locked'] == 'true') {
+        if (pName == undefined) {
+
+            res.status(400);
+            res.end('Invalid printer name provided.');
+            return;
+
+        }
+
+        if (settings['locked']) {
 
             res.status(400);
             res.end('Cannot remove printer record. The server list is locked.');
             return;
+
         }
 
         // Find this printer name in the internal list. It is guaranteed to be unique, if it exists.
@@ -342,13 +428,14 @@ app.route('/api/delprinter')
         res.status(400);
         res.end("Can't delete a printer that doesn't exist!");
         return;
+
     });
 
 // Handle uploading posted models, or routing g-code
 app.route('/api/modelupload')
     .post(function(req, res, next) {
 
-        if (settings['log'] == 'true') {
+        if (settings['log']) {
             console.log('/api/modelupload is being posted to.');
         }
 
@@ -375,23 +462,24 @@ app.route('/api/modelupload')
             // Verify a file was actually uploaded
             if (files == undefined || files.model == undefined || files.model.path == undefined) {
 
-                if (settings['log'] == 'true') {
+                if (settings['log']) {
                     console.log('No file uploaded.');
                 }
 
                 res.status(400);
                 res.end('No file provided.');
                 return;
+
             }
 
             var filepath = files.model.path,
                 filename = files.model.path,
-                pIP = lookupIP(fields.target);
+                pIP = lookupIP(validateAndSanitizePrinterName(fields.target));
 
 
-            if (settings['is_server'] == 'true' && pIP == undefined) {
+            if (settings['is_server'] && pIP == undefined) {
 
-                if (settings['log'] == 'true') {
+                if (settings['log']) {
                     console.log('IP address is undefined {target: ' + fields.target + ', file: ' + filepath + '}');
                 }
 
@@ -400,6 +488,7 @@ app.route('/api/modelupload')
                 res.status(400);
                 res.end('Printer is not registered with the server');
                 return;
+
             }
 
             // Currently filename is a full path, remove the path (need to cover windows and unix style paths)
@@ -413,7 +502,7 @@ app.route('/api/modelupload')
             // Make sure the original file had an extension
             if (files.model.name.indexOf('.') == -1 || files.model.name.length <= 4) {
 
-                if (settings['log'] == 'true') {
+                if (settings['log']) {
                     console.log('No file extension found {target: ' + fields.target + ', ip: ' + pIP + ', filename: ' + files.model.name + '}');
                 }
 
@@ -429,7 +518,7 @@ app.route('/api/modelupload')
                 typeCheck = 0;
 
             // Can only upload models to the intermediate server, not to the client
-            if (settings['is_server'] == 'true') {
+            if (settings['is_server']) {
                 for (var i in validModelFormats) {
                     if (('.' + validModelFormats[i]) === filext) {
                         typeCheck = 1;
@@ -451,7 +540,7 @@ app.route('/api/modelupload')
                 return;
             }
 
-            if (settings['is_server'] == 'true') {
+            if (settings['is_server']) {
                 console.log('Uploaded file to server {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}');
             }
             else {
@@ -473,7 +562,7 @@ app.route('/api/modelupload')
             // If the file is a 3D model, slice it
             if (typeCheck == 1) {
 
-                if (settings['is_server'] == 'true') {
+                if (settings['is_server']) {
                     console.log('Slicing model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
                 }
 
@@ -485,7 +574,7 @@ app.route('/api/modelupload')
                     // If the process terminated properly, forward
                     if (error == null) {
 
-                        if (settings['is_server'] == 'true') {
+                        if (settings['is_server']) {
                             console.log('Successfully sliced model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
                         }
 
@@ -496,7 +585,7 @@ app.route('/api/modelupload')
                     }
                     else {
 
-                        if (settings['is_server'] == 'true') {
+                        if (settings['is_server']) {
                             console.log('Error slicing uploaded model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
                         }
 
@@ -509,7 +598,7 @@ app.route('/api/modelupload')
             }
             else if (typeCheck == 2) {
 
-                if (settings['is_server'] == 'true') {
+                if (settings['is_server']) {
                     res.end('Your g-code is being forwarded to ' + fields.target + '.');
                     forwardModel(filepath, pIP);
                     return;
@@ -545,7 +634,7 @@ app.route('/api/modelupload')
 
 // var server = http.createServer(app);
 // server.listen(8080);
-app.listen(process.env.PORT || 8080);
+app.listen(process.env.PORT || settings['port']);
 
 // var wss = new ws.Server({server: server});
 // wss.on('connection', function(ws) {

@@ -189,7 +189,7 @@ function populatePrinterList() {
                         '<button type="button" class="btn btn-default" name="delprinter" value="' + data.printers[i].name + '">&times</button>' +
                     '</div>';
 
-            if (data.locked == 'true') {
+            if (data.locked) {
                 rightPadding = '0px';
                 editButtons = '';
             }
@@ -202,7 +202,7 @@ function populatePrinterList() {
             ipmap[data.printers[i].name] = data.printers[i].ip;
         }
 
-        if (data.locked == 'false') {
+        if (!data.locked) {
             // Create and append the 'Add Printer' option
             var listSep = document.createElement('li');
             listSep.setAttribute('role', 'presentation');
@@ -243,7 +243,7 @@ function populatePrinterList() {
         // If there is at least one printer, set it as the default
         // If the list is locked for editing, the seperator and add printer button are not there
         var plist = $('#printer-select')[0];
-        if (plist.children.length > (data.locked == 'true' ? 0 : 2)) {
+        if (plist.children.length > (data.locked ? 0 : 2)) {
             setCurrentPrinter($('#printer-select')[0].children[0].children[0].text);
         }
         // If there are no printers in the list current, default to 'Select Printer' (to allow the user to click 'Add Printer')
