@@ -14,9 +14,10 @@ var express = require('express'),
 // Populate with default settings
 // If a config file exists, it will override these
 var settings = {
-    'is_server' : 'false',
-    'locked'    : 'false',
-    'log'       : 'true'
+    'is_server'         : 'false',
+    'locked'            : 'false',
+    'log'               : 'true',
+    'slicing_server'    : undefined
 }
 
 // Contains an in-memory list of the connected printers
@@ -153,7 +154,6 @@ function downloadAndProcess(d_url, ipaddr) {
         path: url.parse(d_url).pathname
     }
 
-    // TODO: Does this sanitize at all?
     var file_name = url.parse(d_url).pathname.split('/').pop();
     var file = fs.createWriteStream('tmp/' + file_name);
 
@@ -173,12 +173,19 @@ function kickoffPrint() {
     console.log('Start print job here');
 }
 
+app.route('/api/getip')
+    .get(function(req, res, next) {
+        res.json({ip: req.connection.remoteAddress});
+        next();
+    });
+
 // Returns, as JSON, the list of possible print targets and whether editing is currently locked.
 app.route('/api/getprinters')
     .get(function(req, res, next) {
         if (settings['locked'] != 'true') {
             res.json({printers : connectedPrinters, locked : settings['locked']});
         }
+
         // If our server is locked, remove ip addresses since they cannot be used by the client anyway
         // This does involve a lot more processing, but it is probably worth it for security
         else {
@@ -189,6 +196,7 @@ app.route('/api/getprinters')
 
             res.json({printers : ret, locked : settings['locked']});
         }
+
         next();
     });
 
@@ -349,9 +357,16 @@ app.route('/api/modelupload')
 
         form.parse(req, function(err, fields, files) {
 
-            if (fields.type == 1) {
-                // TODO: Validate target
-                downloadAndProcess(fields.url, fields.target);
+            // If this is a URL-based upload, download the file and re-call /api/modelupload with the file
+            if (fields != undefined && fields.type == 1) {
+
+                if (fields.target == undefined || fields.target.trim() == '') {
+                    res.status(400);
+                    res.end('No URL provided.');
+                    return;
+                }
+
+                downloadAndProcess(fields.url, fields.target.trim());
 
                 res.end();
                 return;
