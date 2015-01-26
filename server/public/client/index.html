@@ -25,6 +25,21 @@
                                 Browse: <input type="file" name="model" id="model"></input>
                             </span>
                         </span>
+
+                        <!-- Paste a link -->
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-default" id="input-link" style="border-radius: 0px !important;"  data-toggle="modal" data-target="#print-url-modal">
+                              <span class="glyphicon glyphicon-link" aria-hidden="true" style=""></span>&nbsp;
+                            </button>
+                        </span>
+
+                        <!-- Hold the input url to submit, if a url is being sent -->
+                        <input type="hidden" id="print-url" name="url"></input>
+
+                        <!-- Says if this is a file upload (0) or url upload (1) -->
+                        <input type="hidden" id="print-type" name="type"></input>
+
+
                         <input type="text" class="form-control" readonly></input>
                     </div>
 
@@ -42,5 +57,29 @@
             </div>
             </div>
         </center>
+
+        <div class="modal fade" id="print-url-modal" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title">Print From URL</h4>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="input-group" style="width: 100%">
+                            <input type="text" class="form-control" placeholder="URL" id="download-url"></input>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="print-url-submit">Submit</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
     </body>
 </html>
