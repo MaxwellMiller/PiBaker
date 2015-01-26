@@ -18,6 +18,7 @@ var settings = {
     'locked'            : false,
     'log'               : true,
     'slicing_server'    : undefined,
+    'slicer_path'       : '/bin/slic3r/bin/slic3r',
     'port'              : 8080
 }
 
@@ -34,15 +35,29 @@ if (fs.existsSync('data/config')) {
 
     // If the file exists, read it's contents
     // If it doesn't exist, there's no need to do anything
-    data = fs.readFileSync('data/config', 'utf8')
+    data = fs.readFileSync('data/config', 'utf8');
 
-    var tok = data.split(/\s+/);
+    var tok = data.split(/\n+/);
 
     // If there was trailing whitespace, remove the empty element
     if (tok.length > 0 && tok[tok.length-1] == '')
         tok.pop();
 
-    var ret = [];
+    // tok is split on lines right now, split into key/value tokens
+    var tmptok = [],
+        rgx = /([\w+\/]+)\s+([^\0]+)/;
+
+    for (var i in tok) {
+        var matches = rgx.exec(tok[i]);
+
+        if (matches != undefined) {
+            for (var j = 1; j < matches.length; ++j) {
+                tmptok.push(matches[j]);
+            }
+        }
+    }
+
+    tok = tmptok;
 
     if (tok.length < 2) return;
 
@@ -59,13 +74,15 @@ if (fs.existsSync('data/config')) {
                 break;
 
             case 'slicing_server':
+            case 'slicer_path':
                 value = valueTxt;
                 break;
 
             case 'port':
-                value = parseInt(value);
+                value = parseInt(valueTxt);
 
                 if (value == NaN) {
+                    console.log('Error parsing port value.');
                     value = undefined;
                 }
 
@@ -79,6 +96,8 @@ if (fs.existsSync('data/config')) {
             console.log('Unexpected config entry ' + key + ', ' + valueTxt);
             continue;
         }
+
+        console.log('Setting ' + key + ' = ' + value + ' set');
 
         settings[key] = value;
     }
@@ -95,6 +114,10 @@ else {
     app.use(express.static(__dirname + '/public/client/'));
 }
 app.use('/share', express.static(__dirname + '/public/share/'));
+
+if (settings['log']) {
+    console.log('Express server created.');
+}
 
 
 var validModelFormats = ['stl', 'obj', 'amf']
@@ -206,7 +229,7 @@ function forwardModel(filepath, ipaddr, retryAttempts, optionalFormData) {
                     fs.unlinkSync(filepath);
                 }
                 else {
-                    postModel(url, data, retryAttempts - 1);
+                    forwardModel(url, data, retryAttempts - 1);
                 }
             }
         }
@@ -233,7 +256,7 @@ function downloadAndProcess(d_url, ipaddr) {
             file.end();
             console.log(__dirname + '/tmp/' + file_name + ' downloaded, transfering to /api/modelupload');
 
-            forwardModel(__dirname + '/tmp/' + file_name, 'localhost:8080', 3, {target: ipaddr, type: 0});
+            forwardModel(__dirname + '/tmp/' + file_name, 'localhost:' + settings['port'], 3, {target: ipaddr, type: 0});
         
         });
     });
@@ -247,10 +270,13 @@ function kickoffPrint() {
 // if it is invalid and unfixable, return false
 function validateAndSanitizePrinterName(name) {
 
+    if (name == undefined) {
+        return undefined;
+    }
+
     name = name.replace(/[^a-z0-9_\-. ]/gi, '');
 
-    if (name == undefined   ||
-        name == ''          ||
+    if (name == ''          ||
         name.length > 20) {
 
         return undefined
@@ -552,11 +578,13 @@ app.route('/api/modelupload')
                 return;
             }
 
-            if (settings['is_server']) {
-                console.log('Uploaded file to server {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}');
-            }
-            else {
-                console.log('Uploaded file to printer {target: '+ fields.target + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}')
+            if (settings['log']) {            
+                if (settings['is_server']) {
+                    console.log('Uploaded file to server {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}');
+                }
+                else {
+                    console.log('Uploaded file to printer {target: '+ fields.target + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}')
+                }
             }
 
 
@@ -574,13 +602,20 @@ app.route('/api/modelupload')
             // If the file is a 3D model, slice it
             if (typeCheck == 1) {
 
-                if (settings['is_server']) {
+                if (!settings['is_server']) {
+                    res.status(400);
+                    res.end('Non-sliced 3D models are only supported on a server.');
+                    return;
+                }
+
+                if (settings['log']) {
                     console.log('Slicing model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
                 }
 
+
                 // Execute slic3r with the model as an arguement
                 // Register a callback to forward the model to the client
-                exec('/bin/slic3r/bin/slic3r ' + __dirname + '/models/' + filename + filext,
+                exec(settings['slicer_path'] + ' ' + __dirname + '/models/' + filename + filext,
                 function(error, stdout, stderr) {
 
                     // If the process terminated properly, forward
@@ -647,6 +682,10 @@ app.route('/api/modelupload')
 // var server = http.createServer(app);
 // server.listen(8080);
 app.listen(process.env.PORT || settings['port']);
+
+if (settings['log']) {
+    console.log('Listening on port ' + settings['port']);
+}
 
 // var wss = new ws.Server({server: server});
 // wss.on('connection', function(ws) {
