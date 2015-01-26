@@ -113,6 +113,8 @@ $(document).ready(function() {
     $('#print-url-submit').click(function(e) {
         var url = $('#download-url')[0].value.trim();
 
+        console.log(url);
+
         if (url != '') {
             $('#print-url').val(url);
             $('#upload-text-display').val(url);
