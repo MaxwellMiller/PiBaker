@@ -254,7 +254,10 @@ function downloadAndProcess(d_url, ipaddr) {
         }).on('end', function() {
 
             file.end();
-            console.log(__dirname + '/tmp/' + file_name + ' downloaded, transfering to /api/modelupload');
+
+            if (settings['log']) {
+                console.log(__dirname + '/tmp/' + file_name + ' downloaded, transfering to /api/modelupload');
+            }
 
             forwardModel(__dirname + '/tmp/' + file_name, 'localhost:' + settings['port'], 3, {target: ipaddr, type: 0});
         
@@ -332,9 +335,11 @@ app.route('/api/regprinter')
             return;
         }
 
+        if (pIP != undefined) pIP = pIP.trim();
+
         // TODO: These should be validating IP address and name more
-        if (pName === undefined ||
-            pIP   === undefined || pIP.trim()   === '') {
+        if (pName == undefined ||
+            pIP   == undefined || pIP == '') {
 
             res.status(400);
             res.end('Invalid name and IP address.');
@@ -393,21 +398,33 @@ app.route('/api/editprinter')
             return;
         }
 
-        // TODO: Break off these error messages
-        if (npName === undefined ||
-            opName === undefined ||
-            pIP    === undefined || pIP.trim()    === '') {
-
+        // Validate inputs
+        if (opName == undefined) {
             res.status(400);
-            res.end('Must provide a valid original name, new name, and new IP address when changing a printer record.');
+            res.end('Printer "' + req.body.oldPrinterName + '" does not exist, cannot change it.');
             return;
         }
 
-        pIP = pIP.trim();
+        if (npName == undefined) {
+            res.status(400);
+            res.end('Invalid name, cannot change printer to ' + req.body.newPrinterName);
+            return;
+        }
+
+
+        if (pIP != undefined) {
+            pIP = pIP.trim();
+        }
+
+        if (pIP == undefined || pIP == '') {
+            res.status(400);
+            res.end('Invalid IP address "' + req.body.printerIP + '" provided.');
+            return;
+        }
 
         // Check to see if this printer conflicts with any printers already registered
         for (var i in connectedPrinters) {
-            if (connectedPrinters[i].name === opName) {
+            if (connectedPrinters[i].name == opName) {
 
                 connectedPrinters[i].name = npName;
                 connectedPrinters[i].ip = pIP;
@@ -555,12 +572,10 @@ app.route('/api/modelupload')
             var filext = files.model.name.substring(files.model.name.lastIndexOf(".")).toLowerCase(),
                 typeCheck = 0;
 
-            // Can only upload models to the intermediate server, not to the client
-            if (settings['is_server']) {
-                for (var i in validModelFormats) {
-                    if (('.' + validModelFormats[i]) === filext) {
-                        typeCheck = 1;
-                    }
+            // Is this an unsliced 3D model that we can convert?
+            for (var i in validModelFormats) {
+                if (('.' + validModelFormats[i]) === filext) {
+                    typeCheck = 1;
                 }
             }
 
@@ -603,9 +618,15 @@ app.route('/api/modelupload')
             if (typeCheck == 1) {
 
                 if (!settings['is_server']) {
-                    res.status(400);
-                    res.end('Non-sliced 3D models are only supported on a server.');
-                    return;
+
+                    if (settings['slicing_server'] != undefined) {
+                        forwardModel(filepath, settings['slicing_server'], 3, optionalFormData);
+                    }
+                    else {
+                        res.status(400);
+                        res.end('Non-sliced 3D models are only supported on a server.');
+                        return;
+                    }
                 }
 
                 if (settings['log']) {
