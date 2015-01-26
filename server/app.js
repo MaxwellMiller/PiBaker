@@ -186,8 +186,8 @@ function lookupIP(name) {
     return undefined;
 }
 
-// Sends the model at filepath to the server at ipaddr
-function forwardModel(filepath, ipaddr, retryAttempts, optionalFormData) {
+// Sends the model at filepath to the server at url
+function forwardModel(filepath, url, retryAttempts, optionalFormData) {
     var formData = {
         model: fs.createReadStream(filepath)
     }
@@ -204,17 +204,17 @@ function forwardModel(filepath, ipaddr, retryAttempts, optionalFormData) {
 
     }
 
-    ipaddr = 'http://' + ipaddr + '/api/modelupload';
+    url = 'http://' + url + '/api/modelupload';
 
     request.post({
         url: url,
-        formData: data
+        formData: formData
     }, function(err, resp, body) {
 
         if (err == null) {
 
             if (settings['log']) {
-                console.log('Model sent to ' + ipaddr);
+                console.log('Model sent to ' + url);
             }
 
             fs.unlinkSync(filepath);
@@ -223,13 +223,13 @@ function forwardModel(filepath, ipaddr, retryAttempts, optionalFormData) {
 
             if (settings['log']) {
                 if (retryAttempts <= 0) {
-                    console.log('Error sending model to ' + ipaddr);
+                    console.log('Error sending model to ' + url);
                     console.log(err);
 
                     fs.unlinkSync(filepath);
                 }
                 else {
-                    forwardModel(url, data, retryAttempts - 1);
+                    forwardModel(filepath, url, retryAttempts - 1);
                 }
             }
         }
