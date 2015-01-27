@@ -653,6 +653,7 @@ app.route('/api/modelupload')
                     // the slicing server to slice this model. Otherwise, we can't really do anything, so return an error.
                     if (settings['slicing_server'] != undefined && settings['printer_name'] != undefined) {
                         forwardModel(filepath, settings['slicing_server'], 3, {target: settings['printer_name'], type: 0});
+                        return;
                     }
                     else {
                         res.status(400);
