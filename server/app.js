@@ -212,10 +212,10 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
 
     }
 
-    s_url = 'http://' + s_url + '/api/modelupload';
+    var new_url = 'http://' + s_url + '/api/modelupload';
 
     request.post({
-        url: s_url,
+        url: new_url,
         formData: formData
     }, function(err, resp, body) {
 
