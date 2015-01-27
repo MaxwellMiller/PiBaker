@@ -102,7 +102,7 @@ $(document).ready(function() {
             dataType: 'json',
             contentType: 'application/json'
         }).complete(function(data) { // is there a way to only call this when there is an error?
-            alertUser(data.responseText);
+            alertUser(data.status, data.responseText);
         });
 
         dismissEditPrinterDialog();

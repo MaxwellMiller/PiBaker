@@ -444,7 +444,6 @@ app.route('/api/editprinter')
                     console.log(opName + ' updated to (' + npName + ', ' + pIP + ')');
                 }
 
-                res.status(200);
                 res.end(opName + ' updated.');
                 return;
             }
