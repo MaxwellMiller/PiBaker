@@ -5,7 +5,7 @@ var dirs = ['server/tmp', 'server/models', 'server/data'];
 
 // Filenames -> Content to write
 var files = {
-	'server/data/config' : 'is_server false\nlocked false\nlog true\nslicing_server undefined\nslicer_path /bin/slic3r/bin/slic3r\nport 8080'
+	'server/data/config' : 'is_server false\nlocked false\nlog true\nslicer_path /bin/slic3r/bin/slic3r\nport 8080'
 }
 
 var clean = false;

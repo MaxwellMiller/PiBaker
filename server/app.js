@@ -18,6 +18,7 @@ var settings = {
     'locked'            : false,
     'log'               : true,
     'slicing_server'    : undefined,
+    'printer_name'      : undefined,
     'slicer_path'       : '/bin/slic3r/bin/slic3r',
     'port'              : 8080
 }
@@ -107,6 +108,9 @@ if (fs.existsSync('data/config')) {
 var app = express();
 app.use(bodyParser.json());
 
+// Serve different content based on whether this is acting as the printer interface
+// or a managment server. Shared content can be accessed either way by placing it in
+// the /share path
 if (settings['is_server']) {
     app.use(express.static(__dirname + '/public/server/'));
 }
@@ -122,6 +126,7 @@ if (settings['log']) {
 
 var validModelFormats = ['stl', 'obj', 'amf']
 
+// Converts any reasonable boolean value as a string to a boolean
 function toBool(string) {
     switch (string.toLowerCase()) {
         case 'true': case 'yes': case '1':
@@ -135,6 +140,8 @@ function toBool(string) {
     return undefined;
 }
 
+// Populates the list of printers/ip addresses from the data/printers file
+// if the file does not exist, the application does nothing.
 function loadPrinterList() {
     fs.exists('data/printers', function(exists) {
         // If the file exists, read it's contents
@@ -186,8 +193,8 @@ function lookupIP(name) {
     return undefined;
 }
 
-// Sends the model at filepath to the server at url
-function forwardModel(filepath, url, retryAttempts, optionalFormData) {
+// Sends the model at filepath to the server at s_url
+function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
     var formData = {
         model: fs.createReadStream(filepath)
     }
@@ -204,17 +211,17 @@ function forwardModel(filepath, url, retryAttempts, optionalFormData) {
 
     }
 
-    url = 'http://' + url + '/api/modelupload';
+    s_url = 'http://' + s_url + '/api/modelupload';
 
     request.post({
-        url: url,
+        url: s_url,
         formData: formData
     }, function(err, resp, body) {
 
         if (err == null) {
 
             if (settings['log']) {
-                console.log('Model sent to ' + url);
+                console.log('Model sent to ' + s_url);
             }
 
             fs.unlinkSync(filepath);
@@ -223,20 +230,21 @@ function forwardModel(filepath, url, retryAttempts, optionalFormData) {
 
             if (settings['log']) {
                 if (retryAttempts <= 0) {
-                    console.log('Error sending model to ' + url);
+                    console.log('Error sending model to ' + s_url);
                     console.log(err);
 
                     fs.unlinkSync(filepath);
                 }
                 else {
-                    forwardModel(filepath, url, retryAttempts - 1);
+                    forwardModel(filepath, s_url, retryAttempts - 1);
                 }
             }
         }
     });
 }
 
-function downloadAndProcess(d_url, ipaddr) {
+// Downloads the file from d_url and sends it to /api/modelupload of s_url
+function downloadAndProcess(d_url, s_url) {
     var options = {
         host: url.parse(d_url).host,
         port: 80,
@@ -259,12 +267,13 @@ function downloadAndProcess(d_url, ipaddr) {
                 console.log(__dirname + '/tmp/' + file_name + ' downloaded, transfering to /api/modelupload');
             }
 
-            forwardModel(__dirname + '/tmp/' + file_name, 'localhost:' + settings['port'], 3, {target: ipaddr, type: 0});
+            forwardModel(__dirname + '/tmp/' + file_name, s_url, 3, {type: 0});
         
         });
     });
 }
 
+// TODO: This needs to do things
 function kickoffPrint() {
     console.log('Start print job here');
 }
@@ -430,6 +439,12 @@ app.route('/api/editprinter')
                 connectedPrinters[i].ip = pIP;
 
                 writeConnectedPrinters();
+
+                if (settings['log']) {
+                    console.log(opName + ' updated to (' + npName + ', ' + pIP + ')');
+                }
+                
+                res.status(200);
                 res.end();
                 return;
             }
@@ -487,6 +502,14 @@ app.route('/api/delprinter')
     });
 
 // Handle uploading posted models, or routing g-code
+// Behavior:
+// target-type: 0 (file upload)
+//      target defined: look-up target, print to that IP
+//      target undefined: attempt to print (file must be g-code)
+// target-type: 1 (url upload)
+//      url: must be the url to download from
+//      target defined: download the model and send it to the ip-address associated with target
+//      target undefined: download the model and attempt to print it (must be g-code)
 app.route('/api/modelupload')
     .post(function(req, res, next) {
 
@@ -499,16 +522,23 @@ app.route('/api/modelupload')
 
         form.parse(req, function(err, fields, files) {
 
+            var pIP = lookupIP(validateAndSanitizePrinterName(fields.target));
+
             // If this is a URL-based upload, download the file and re-call /api/modelupload with the file
             if (fields != undefined && fields.type == 1) {
 
-                if (fields.target == undefined || fields.target.trim() == '') {
+                if (fields.url == undefined || fields.url.trim() == '') {
                     res.status(400);
                     res.end('No URL provided.');
                     return;
                 }
 
-                downloadAndProcess(fields.url, fields.target.trim());
+                if (pIP != undefined) {
+                    downloadAndProcess(fields.url, pIP);
+                }
+                else {
+                    downloadAndProcess(fields.url, 'localhost:' + settings['port']);
+                }
 
                 res.end();
                 return;
@@ -528,9 +558,7 @@ app.route('/api/modelupload')
             }
 
             var filepath = files.model.path,
-                filename = files.model.path,
-                pIP = lookupIP(validateAndSanitizePrinterName(fields.target));
-
+                filename = files.model.path;
 
             if (settings['is_server'] && pIP == undefined) {
 
@@ -568,6 +596,7 @@ app.route('/api/modelupload')
                 return;
             }
 
+            // TODO: Seperate this into a seperate function
             // It is guaranteed that there is at least one instance of '.'
             var filext = files.model.name.substring(files.model.name.lastIndexOf(".")).toLowerCase(),
                 typeCheck = 0;
@@ -614,13 +643,15 @@ app.route('/api/modelupload')
             // a websocket with the client here, register a callback for when the slicing
             // process finishes to send the result (success/failure) to the client
 
-            // If the file is a 3D model, slice it
+            // If the file is an unsliced 3D model, try to slice it
             if (typeCheck == 1) {
 
                 if (!settings['is_server']) {
 
-                    if (settings['slicing_server'] != undefined) {
-                        forwardModel(filepath, settings['slicing_server'], 3, optionalFormData);
+                    // If this is a printer and a non-sliced model was uploaded, and a slicing_server has been defined, use
+                    // the slicing server to slice this model. Otherwise, we can't really do anything, so return an error.
+                    if (settings['slicing_server'] != undefined && settings['printer_name'] != undefined) {
+                        forwardModel(filepath, settings['slicing_server'], 3, {target: settings['printer_name'], type: 0});
                     }
                     else {
                         res.status(400);
@@ -664,6 +695,7 @@ app.route('/api/modelupload')
                 res.end('Your model is uploaded and being sliced.');
                 return;
             }
+            // The uploaded file is a .gcode file
             else if (typeCheck == 2) {
 
                 if (settings['is_server']) {
