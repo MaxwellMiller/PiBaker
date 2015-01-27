@@ -75,10 +75,6 @@ if (fs.existsSync('data/config')) {
                 break;
 
             case 'slicing_server':
-                // TODO: Only add http and stuff if needed
-                value = 'http://' + valueTxt + '/api/modelupload';
-                break;
-                
             case 'slicer_path':
             case 'printer_name':
                 value = valueTxt;
