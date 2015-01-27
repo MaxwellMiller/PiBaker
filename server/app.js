@@ -443,9 +443,9 @@ app.route('/api/editprinter')
                 if (settings['log']) {
                     console.log(opName + ' updated to (' + npName + ', ' + pIP + ')');
                 }
-                
+
                 res.status(200);
-                res.end();
+                res.end(opName + ' updated.');
                 return;
             }
 
@@ -489,7 +489,8 @@ app.route('/api/delprinter')
 
                 // Write the file to disk and close the connection
                 writeConnectedPrinters();
-                res.end();
+
+                res.end('The printer has been removed.');
                 return;
             }
         }
@@ -540,7 +541,7 @@ app.route('/api/modelupload')
                     downloadAndProcess(fields.url, 'localhost:' + settings['port']);
                 }
 
-                res.end();
+                res.end('The download has started.');
                 return;
             }
 
