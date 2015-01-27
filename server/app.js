@@ -76,6 +76,7 @@ if (fs.existsSync('data/config')) {
 
             case 'slicing_server':
             case 'slicer_path':
+            case 'printer_name':
                 value = valueTxt;
                 break;
 
