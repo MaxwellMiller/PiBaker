@@ -27,6 +27,13 @@ var settings = {
 // The data file should be written whenever this is updated
 var connectedPrinters = [];
 
+// Stores the number of downloads that have been completed this run. This
+// is used to generate new filenames to download as.
+var downloadNumber = 0;
+
+// The directory where uploaded files will be downloaded to
+var tmpdir = __dirname + '/tmp/';
+
 // Load the inital printer list
 loadPrinterList();
 
@@ -63,6 +70,7 @@ if (fs.existsSync('data/config')) {
     if (tok.length < 2) return;
 
     for (var i = 0; i < tok.length; i += 2) {
+
         var key = tok[i].trim().toLowerCase(),
             valueTxt = tok[i+1].trim().toLowerCase()
             value = undefined;
@@ -75,6 +83,9 @@ if (fs.existsSync('data/config')) {
                 break;
 
             case 'slicing_server':
+                value = fixupURL(valueTxt);
+                break;
+
             case 'slicer_path':
             case 'printer_name':
                 value = valueTxt;
@@ -127,8 +138,37 @@ if (settings['log']) {
 
 var validModelFormats = ['stl', 'obj', 'amf']
 
+function fixupURL(o_url) {
+
+    if (o_url == undefined) {
+        return undefined;
+    }
+
+    var new_url = o_url;
+
+    if (new_url.slice(0, 'https://'.length) == 'https://') {
+
+        if (settings['log']) {
+            console.log('https url\'s are not supported.');
+        }
+
+        return undefined;
+    }
+
+    if (new_url.slice(0, 'http://'.length) != 'http://') {
+        new_url = 'http://' + new_url;
+    }
+
+    return new_url;
+}
+
 // Converts any reasonable boolean value as a string to a boolean
 function toBool(string) {
+
+    if (string == undefined) {
+        return undefined;
+    }
+
     switch (string.toLowerCase()) {
         case 'true': case 'yes': case '1':
             return true;
@@ -139,6 +179,19 @@ function toBool(string) {
     }
 
     return undefined;
+}
+
+function getFileExtension(filename) {
+
+    if (filename == undefined) {
+        return undefined;
+    }
+
+    if (filename.indexOf('.') == -1) {
+        return undefined;
+    }
+
+    return filename.substring(filename.lastIndexOf(".")).toLowerCase();
 }
 
 // Populates the list of printers/ip addresses from the data/printers file
@@ -173,6 +226,7 @@ function loadPrinterList() {
 // Write the connectedPrinters array to disk
 // TODO: Do I need to create a lock to ensure the file isn't written multiple times at the same time?
 function writeConnectedPrinters() {
+
     var toWrite = '';
 
     for (var i in connectedPrinters) {
@@ -196,6 +250,7 @@ function lookupIP(name) {
 
 // Sends the model at filepath to the server at s_url
 function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
+
     var formData = {
         model: fs.createReadStream(filepath)
     }
@@ -212,7 +267,7 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
 
     }
 
-    var new_url = 'http://' + s_url + '/api/modelupload';
+    var new_url = s_url + '/api/modelupload';
 
     request.post({
         url: new_url,
@@ -244,6 +299,16 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
     });
 }
 
+// It's okay for download names to conflict between runs, since the only reason to keep unique names
+// is so that potentially simultanious actions don't stomp on each other.
+function getDownloadName() {
+
+    var ret = 'download_' + downloadNumber;
+    downloadNumber += 1;
+
+    return ret;
+}
+
 // Downloads the file from d_url and sends it to /api/modelupload of s_url
 function downloadAndProcess(d_url, s_url) {
     var options = {
@@ -252,9 +317,11 @@ function downloadAndProcess(d_url, s_url) {
         path: url.parse(d_url).pathname
     }
 
-    var file_name = url.parse(d_url).pathname.split('/').pop();
-    var file = fs.createWriteStream('tmp/' + file_name);
+    // Generate a new unique file name (unique for this run, not )
+    var file_name = getDownloadName() + getFileExtension(url.parse(d_url).pathname.split('/').pop());
+    var file = fs.createWriteStream(tmpdir + file_name);
 
+    // Download the file and write it to disk in the temp directory
     http.get(options, function(res) {
         res.on('data', function(data) {
 
@@ -265,10 +332,11 @@ function downloadAndProcess(d_url, s_url) {
             file.end();
 
             if (settings['log']) {
-                console.log(__dirname + '/tmp/' + file_name + ' downloaded, transfering to /api/modelupload');
+                console.log(tmpdir + file_name + ' downloaded, transfering to /api/modelupload');
             }
 
-            forwardModel(__dirname + '/tmp/' + file_name, s_url, 3, {type: 0});
+            // Send the model to s_url
+            forwardModel(tmpdir + file_name, s_url, 3, {type: 0});
         
         });
     });
@@ -345,16 +413,21 @@ app.route('/api/regprinter')
             return;
         }
 
-        if (pIP != undefined) pIP = pIP.trim();
-
-        // TODO: These should be validating IP address and name more
-        if (pName == undefined ||
-            pIP   == undefined || pIP == '') {
+        if (pName == undefined) {
 
             res.status(400);
-            res.end('Invalid name and IP address.');
+            res.end('Invalid name provided.');
             return;
         }
+
+        if (pIP != undefined) pIP = pIP.trim();
+
+        if (pIP == undefined || pIP == '') {
+
+            res.status(400);
+            res.end('No printer IP or URL provided.');
+            return;
+        }        
 
         if (settings['log']) {
             console.log('Registering printer {name: ' + pName + ', ip: ' + pIP + '}');
@@ -422,9 +495,7 @@ app.route('/api/editprinter')
         }
 
 
-        if (pIP != undefined) {
-            pIP = pIP.trim();
-        }
+        if (pIP != undefined) pIP = pIP.trim();
 
         if (pIP == undefined || pIP == '') {
             res.status(400);
@@ -462,6 +533,7 @@ app.route('/api/editprinter')
 // Removes a printer with the name sent
 app.route('/api/delprinter')
     .post(function(req, res, next) {
+        
         var pName = validateAndSanitizePrinterName(req.body.printerName);
 
         if (pName == undefined) {
@@ -519,7 +591,7 @@ app.route('/api/modelupload')
         }
 
         var form = new formidable.IncomingForm();
-        form.uploadDir = __dirname + '/models';
+        form.uploadDir = tmpdir;
 
         form.parse(req, function(err, fields, files) {
 
@@ -583,8 +655,10 @@ app.route('/api/modelupload')
                 filename = filename.substring(filename.lastIndexOf('\\') + 1);
             }
 
-            // Make sure the original file had an extension
-            if (files.model.name.indexOf('.') == -1 || files.model.name.length <= 4) {
+            var filext = getFileExtension(files.model.name),
+                typeCheck = 0;
+
+            if (filext == undefined) {
 
                 if (settings['log']) {
                     console.log('No file extension found {target: ' + fields.target + ', ip: ' + pIP + ', filename: ' + files.model.name + '}');
@@ -596,11 +670,6 @@ app.route('/api/modelupload')
                 res.end('Invalid filename. Either too short or no extension');
                 return;
             }
-
-            // TODO: Seperate this into a seperate function
-            // It is guaranteed that there is at least one instance of '.'
-            var filext = files.model.name.substring(files.model.name.lastIndexOf(".")).toLowerCase(),
-                typeCheck = 0;
 
             // Is this an unsliced 3D model that we can convert?
             for (var i in validModelFormats) {
@@ -623,7 +692,8 @@ app.route('/api/modelupload')
                 return;
             }
 
-            if (settings['log']) {            
+            if (settings['log']) {
+
                 if (settings['is_server']) {
                     console.log('Uploaded file to server {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + ', type: ' + typeCheck + '}');
                 }
@@ -632,12 +702,9 @@ app.route('/api/modelupload')
                 }
             }
 
-
-            // filename = filename.replace(/[^a-z0-9_\-\.]/gi, '_').toLowerCase();
-
-            // Rename the file to some a little nicer
-            fs.renameSync(files.model.path, __dirname + '/models/' + filename + filext);
-            filepath = __dirname + '/models/' + filename + filext;
+            // Give the file its original extension, if we've determined it's safe
+            fs.renameSync(files.model.path, tmpdir + filename + filext);
+            filepath = tmpdir + filename + filext;
 
             // TODO: This process is not necessarilly fast. It may take longer
             // than the timeout period for the http response. Current idea: open
@@ -669,7 +736,7 @@ app.route('/api/modelupload')
 
                 // Execute slic3r with the model as an arguement
                 // Register a callback to forward the model to the client
-                exec(settings['slicer_path'] + ' ' + __dirname + '/models/' + filename + filext,
+                exec(settings['slicer_path'] + ' ' + tmpdir + filename + filext,
                 function(error, stdout, stderr) {
 
                     // If the process terminated properly, forward
@@ -681,7 +748,7 @@ app.route('/api/modelupload')
 
                         fs.unlinkSync(filepath);
 
-                        filepath = __dirname + '/models/' + filename + '.gcode';
+                        filepath = tmpdir + filename + '.gcode';
                         forwardModel(filepath, pIP, 3);
                     }
                     else {

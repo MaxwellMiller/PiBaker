@@ -1,7 +1,7 @@
 var fs = require('./server/node_modules/fs-extra');
 
 // Directories which must be created (in the order they must be created in)
-var dirs = ['server/tmp', 'server/models', 'server/data'];
+var dirs = ['server/tmp', 'server/data'];
 
 // Filenames -> Content to write
 var files = {
