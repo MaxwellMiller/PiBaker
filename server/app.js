@@ -52,6 +52,7 @@ if (fs.existsSync('data/config')) {
         tok.pop();
 
     // tok is split on lines right now, split into key/value tokens
+    // Regex splits on first word (no special chars) - rest of line
     var tmptok = [],
         rgx = /([\w+\/]+)\s+([^\0]+)/;
 
@@ -138,6 +139,8 @@ if (settings['log']) {
 
 var validModelFormats = ['stl', 'obj', 'amf']
 
+// Add http:// to the beginning of the url if needed
+// If it begins with https:// return an undefined url, since secure connections are not supported
 function fixupURL(o_url) {
 
     if (o_url == undefined) {
@@ -251,10 +254,36 @@ function lookupIP(name) {
 // Sends the model at filepath to the server at s_url
 function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
 
+    // Validate necessary parameters
+
+    if (filepath != undefined) filepath = filepath.trim();
+
+    if (filepath == undefined) {
+
+        if (settings['log']) {
+            console.log('No filepath specified, failed for forward model.');
+        }
+
+        return;
+    }
+
+    if (s_url != undefined) s_url = s_url.trim();
+
+    if (s_url == undefined || s_url == '') {
+
+        if (settings['log']) {
+            console.log('No filepath specified, failed for forward model.');
+        }
+
+        return;
+    }
+
     var formData = {
         model: fs.createReadStream(filepath)
     }
 
+    // Set values based on optional parameters
+    
     if (retryAttempts == undefined) {
         retryAttempts = 0;
     }
