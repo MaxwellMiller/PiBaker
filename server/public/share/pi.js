@@ -12,6 +12,10 @@ success_foot = '</span></div>'
 
 is_server = false;
 
+// If there is an alert displayed, keep track of it so that we can avoid
+// multiple existing at the same time
+current_alert = undefined;
+
 $(document).on('change', '.btn-file :file', function() {
     var input = $(this),
         numFiles = input.get(0).files ? input.get(0).files.length : 1,
@@ -58,6 +62,10 @@ $(document).ready(function() {
             }
         }
 
+    });
+
+    $('.clear-alert').click(function(e) {
+        removeCurrentAlert();
     });
 
     // Register an onclick event to register a new printer from the add modal
@@ -123,9 +131,22 @@ $(document).ready(function() {
     });
 });
 
+// If there's an alert being shown, remove it.
+function removeCurrentAlert() {
+
+    if (current_alert == undefined) {
+        return;
+    }
+
+    current_alert.parentElement.removeChild(current_alert);
+}
+
 // Assumes status is a standard http status
 // If you want to call it without an http status use 0 for 'Error' and 200 for 'Success'
 function alertUser(status, msg) {
+
+    removeCurrentAlert();
+
     var html = '';
 
     if(status == 200) {
@@ -139,6 +160,8 @@ function alertUser(status, msg) {
     element.innerHTML = html;
 
     document.body.appendChild(element);
+
+    current_alert = element;
 }
 
 // Remove the Add Printer dialog and clear data
