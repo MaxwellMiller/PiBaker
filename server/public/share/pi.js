@@ -200,14 +200,15 @@ function populatePrinterList() {
         $('#printer-select')[0].innerHTML = '';
 
         for (var i=0; i<data.printers.length; ++i) {
+
             var listEl = document.createElement('li'),
                 rightPadding = '60px',
                 editButtons = '' +
                     '<div class="btn-group btn-group-xs" role="group" style="position: absolute; margin-top: -22px; right: 5px;">' +
-                        '<button type="button" class="btn btn-default" name="editprinter" value="' + data.printers[i].name + '">' +
+                        '<button type="button" class="btn btn-default clear-alert" onclick="removeCurrentAlert();" name="editprinter" value="' + data.printers[i].name + '">' +
                             '<span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>&nbsp;' +
                         '</button>' +
-                        '<button type="button" class="btn btn-default" name="delprinter" value="' + data.printers[i].name + '">&times</button>' +
+                        '<button type="button" class="btn btn-default clear-alert" onclick="removeCurrentAlert();" name="delprinter" value="' + data.printers[i].name + '">&times</button>' +
                     '</div>';
 
             if (data.locked) {
@@ -224,14 +225,15 @@ function populatePrinterList() {
         }
 
         if (!data.locked) {
+
             // Create and append the 'Add Printer' option
             var listSep = document.createElement('li');
             listSep.setAttribute('role', 'presentation');
-            listSep.setAttribute('class', 'divider');
+            listSep.setAttribute('class', 'divider clear-alert');
             $('#printer-select')[0].appendChild(listSep);
 
             var addPrinter = document.createElement('li');
-            addPrinter.innerHTML = '<a id=\'add-printer\' data-toggle="modal" data-target="#add-printer-modal">Add Printer</a>';
+            addPrinter.innerHTML = '<a id=\'add-printer\' data-toggle="modal" onclick="removeCurrentAlert();" data-target="#add-printer-modal">Add Printer</a>';
             $('#printer-select')[0].appendChild(addPrinter);
 
 
@@ -280,6 +282,7 @@ function populatePrinterList() {
 
         // Set clicked menu item to be the currently chosen item
         $('#printer-select li a').click(function(e) {
+            
             if (e.currentTarget.attributes['id'] != undefined && e.currentTarget.attributes['id'].value === 'add-printer') {
                 console.log('add-printer');
             }
