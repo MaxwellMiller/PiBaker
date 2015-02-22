@@ -20,8 +20,7 @@ var settings = {
     'slicing_server'    : undefined,
     'printer_name'      : undefined,
     'slicer_path'       : './bin/slic3r/bin/slic3r',
-    // 'interpreter_path'  : './../interpreter/interpreter.py',
-    'interpreter_path'  : '..\\interpreter\\interpreter.py',
+    'interpreter_path'  : './../interpreter/interpreter.py',
     'port'              : 8080
 }
 
@@ -32,6 +31,9 @@ var connectedPrinters = [];
 // Stores the number of downloads that have been completed this run. This
 // is used to generate new filenames to download as.
 var downloadNumber = 0;
+
+// Is there a print job goin on right now? If there is, make sure no new jobs are accepted.
+var currentlyPrinting = false;
 
 // The directory where uploaded files will be downloaded to
 var tmpdir = __dirname + '/tmp/';
@@ -90,6 +92,7 @@ if (fs.existsSync('data/config')) {
                 break;
 
             case 'slicer_path':
+            case 'interpreter_path':
             case 'printer_name':
                 value = valueTxt;
                 break;
@@ -373,14 +376,32 @@ function downloadAndProcess(d_url, s_url) {
     });
 }
 
-// TODO: This needs to do things
 function kickoffPrint(filename) {
-    exec(settings['interpreter_path'] + ' ' + filename, function(err) {
-        console.log(err)
-    });
 
-    console.log('Start print job here');
-}
+    if (currentlyPrinting) {
+
+        if (settings['log']) {
+            console.log('Another print process is currently executing. Please wait for it to complete before starting a new job.');
+        }
+
+        return;
+    }
+
+    currentlyPrinting = true;
+
+    exec(settings['interpreter_path'] + ' ' + filename, {maxBuffer: 1000*1024} , function(error, stdout, stderr) {
+        
+        if (error != '') {
+            console.log(stdout);
+        }
+        else {
+            console.log('Error invoking interpreter');
+        }
+
+        currentlyPrinting = false;
+
+    });
+}   
 
 // Returns a sanitized version of the passed in name
 // if it is invalid and unfixable, return false
@@ -713,7 +734,7 @@ app.route('/api/modelupload')
                 }
             }
 
-            if ('.gcode' === filext) {
+            if ('.gcode' === filext || '.g' == filext) {
                 typeCheck = 2;
             }
 
@@ -809,6 +830,18 @@ app.route('/api/modelupload')
                     return;
                 }
                 else {
+
+                    if (currentlyPrinting) {
+
+                        if (settings['log']) {
+                            console.log('Another print job is currently executing. Please wait.');
+                        }
+
+                        res.status(400);
+                        res.end('Another print job is currently executing. Please wait.');
+                        return;
+                    }
+
                     res.end('Your print should begin shortly.');
                     kickoffPrint(filepath);
                     return;
