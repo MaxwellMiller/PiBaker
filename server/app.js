@@ -389,7 +389,7 @@ function kickoffPrint(filename) {
 
     currentlyPrinting = true;
 
-    exec(settings['interpreter_path'] + ' ' + filename, {maxBuffer: 1000*1024} , function(error, stdout, stderr) {
+    exec('python ' + settings['interpreter_path'] + ' ' + filename, {maxBuffer: 1000*1024} , function(error, stdout, stderr) {
         
         if (error != '') {
             console.log(stdout);
