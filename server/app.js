@@ -20,7 +20,8 @@ var settings = {
     'slicing_server'    : undefined,
     'printer_name'      : undefined,
     'slicer_path'       : './bin/slic3r/bin/slic3r',
-    'interpreter_path'  : './../interpreter/interpreter.py',
+    // 'interpreter_path'  : './../interpreter/interpreter.py',
+    'interpreter_path'  : '..\\interpreter\\interpreter.py',
     'port'              : 8080
 }
 
@@ -375,7 +376,7 @@ function downloadAndProcess(d_url, s_url) {
 // TODO: This needs to do things
 function kickoffPrint(filename) {
     exec(settings['interpreter_path'] + ' ' + filename, function(err) {
-
+        console.log(err)
     });
 
     console.log('Start print job here');
