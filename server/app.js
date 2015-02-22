@@ -19,7 +19,8 @@ var settings = {
     'log'               : true,
     'slicing_server'    : undefined,
     'printer_name'      : undefined,
-    'slicer_path'       : '/bin/slic3r/bin/slic3r',
+    'slicer_path'       : './bin/slic3r/bin/slic3r',
+    'interpreter_path'  : './../interpreter/interpreter.py',
     'port'              : 8080
 }
 
@@ -318,7 +319,7 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
                     console.log('Error sending model to ' + s_url);
                     console.log(err);
 
-                    fs.unlinkSync(filepath);
+                    // fs.unlinkSync(filepath);
                 }
                 else {
                     forwardModel(filepath, s_url, retryAttempts - 1);
@@ -372,7 +373,11 @@ function downloadAndProcess(d_url, s_url) {
 }
 
 // TODO: This needs to do things
-function kickoffPrint() {
+function kickoffPrint(filename) {
+    exec(settings['interpreter_path'] + ' ' + filename, function(err) {
+
+    });
+
     console.log('Start print job here');
 }
 
@@ -778,6 +783,7 @@ app.route('/api/modelupload')
                         fs.unlinkSync(filepath);
 
                         filepath = tmpdir + filename + '.gcode';
+                        fs.chmodSync(filepath, 0755);
                         forwardModel(filepath, pIP, 3);
                     }
                     else {
@@ -803,7 +809,7 @@ app.route('/api/modelupload')
                 }
                 else {
                     res.end('Your print should begin shortly.');
-                    kickoffPrint();
+                    kickoffPrint(filepath);
                     return;
                 }
             }
