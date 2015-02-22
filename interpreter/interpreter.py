@@ -476,7 +476,7 @@ for lin in f:
 
 import sys
 
-f = open('sys.argv', 'r')
+f = open(sys.argv[1], 'r')
 
 for line in f:
     s = line
