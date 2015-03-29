@@ -38,6 +38,13 @@ var currentlyPrinting = false;
 // The directory where uploaded files will be downloaded to
 var tmpdir = __dirname + '/tmp/';
 
+// Current status of the printer
+// 0 -> OK / No status
+// 1 -> Begin slicing
+// 2 -> Sending gcode to the printer
+// 101 -> Error slicing
+var statusNum = 0;
+
 // Load the inital printer list
 loadPrinterList();
 
@@ -303,6 +310,8 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
 
     var new_url = s_url + '/api/modelupload';
 
+    statusNum = 2;
+
     request.post({
         url: new_url,
         formData: formData
@@ -323,7 +332,8 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
                     console.log('Error sending model to ' + s_url);
                     console.log(err);
 
-                    // fs.unlinkSync(filepath);
+                    statusNum = 102
+                    // fs.unlinkSync(filepath); // TODO: revert eventually
                 }
                 else {
                     forwardModel(filepath, s_url, retryAttempts - 1);
@@ -421,6 +431,31 @@ function validateAndSanitizePrinterName(name) {
 
     return name;
 }
+
+function lookupStatus(number) {
+    switch(number) {
+        case 0: return "Okay";
+        case 1: return "Model is being sliced";
+        case 2: return "Sending gcode to printer";
+        case 101: return "Error slicing uploaded model";
+        case 102: return "Error forwarding gcode to printer";
+        default: 
+            console.log('Unknown Status: ' + number)
+            return "";
+    }
+
+}
+
+app.route('/api/getstatus')
+    .get(function(req, res, next) {
+        var stext = lookupStatus(statusNum);
+
+        if(req.body.pname != undefined) {
+            console.log(req.body.pname);
+        }
+
+        res.json({status : statusNum, text : stext});
+    });
 
 // Returns an object with one param: ip, which contains the ip address the request was made from
 app.route('/api/getip')
@@ -792,6 +827,7 @@ app.route('/api/modelupload')
 
                 // Execute slic3r with the model as an arguement
                 // Register a callback to forward the model to the client
+                statusNum = 1;
                 exec(settings['slicer_path'] + ' ' + tmpdir + filename + filext,
                 function(error, stdout, stderr) {
 
@@ -809,6 +845,8 @@ app.route('/api/modelupload')
                         forwardModel(filepath, pIP, 3);
                     }
                     else {
+
+                        statusNum = 101;
 
                         if (settings['is_server']) {
                             console.log('Error slicing uploaded model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');

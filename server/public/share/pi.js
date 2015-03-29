@@ -129,7 +129,28 @@ $(document).ready(function() {
 
         dismissPrintURLDialog();
     });
+
+
+    // Update status of the current printer at regular intervals (if server)
+    if (is_server) {
+        setInterval(updatePrinterStatus, 1000);
+    }
 });
+
+function updatePrinterStatus() {
+    var pName = $('#print-target')[0].value;
+
+    if (pName != undefined) {
+        $.get('/api/getstatus', {printerName: pName})
+            .complete(function(data) {
+                if (data.responseText != undefined) {
+                    var obj = $.parseJSON(data.responseText);
+
+                    setPrinterStatus(obj.status, obj.text);
+                }
+            });
+    }
+}
 
 // If there's an alert being shown, remove it.
 function removeCurrentAlert() {
@@ -139,6 +160,18 @@ function removeCurrentAlert() {
     }
 
     current_alert.parentElement.removeChild(current_alert);
+}
+
+function setPrinterStatus(status, msg) {
+
+    if (status < 100) {
+        $('#serverStatus').css({'color':'green'});
+    }
+    else {
+        $('#serverStatus').css({'color':'red'});
+    }
+
+    $('#serverStatus')[0].innerHTML = 'Printing Status: ' + msg;
 }
 
 // Assumes status is a standard http status
@@ -186,6 +219,7 @@ function dismissPrintURLDialog() {
 
 function setCurrentPrinter(name) {
     $('#printer-select-display')[0].innerHTML = name + '<span class="caret"></span>';
+    updatePrinterStatus();
 
     // The name is being submitted to the server, so it can be verified as a registered printer
     // before initiating the slicing job.
