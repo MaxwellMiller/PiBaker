@@ -387,6 +387,45 @@ function downloadAndProcess(d_url, s_url) {
     });
 }
 
+// Queries the printer at printerIP for its configuration. Returns a filepath if successful
+// or undefined otherwise
+function getPrinterConfig(printerIP) {
+    var hostStr = printerIP;
+    var port = 80;
+
+    if (printerIP.lastIndexOf(":") != -1) {
+        hostStr = printerIP.substring(0, printerIP.lastIndexOf(":"));
+        port = parseInt(printerIP.substring(printerIP.lastIndexOf(":") + 1));
+    }
+
+    var options = {
+        host: hostStr,
+        port: port,
+        path: '/api/getconfig'
+    }
+
+    // Generate a new unique file name (unique for this run, not )
+    var file_name = getDownloadName() + '.ini';
+    var file = fs.createWriteStream(tmpdir + file_name);
+
+    // Download the file and write it to disk in the temp directory
+    http.get(options, function(res) {
+        res.on('data', function(data) {
+
+            file.write(data);
+
+        }).on('end', function() {
+
+            file.end();
+
+            if (settings['log']) {
+                console.log('Config file ' + tmpdir + file_name + ' downloaded');
+            }
+        
+        });
+    });
+}
+
 function kickoffPrint(filename) {
 
     if (currentlyPrinting) {
@@ -446,6 +485,25 @@ function lookupStatus(number) {
     }
 
 }
+
+app.route('/api/getconfig')
+    .get(function(req, res, next) {
+
+        // Only printers have an associated configuration
+        if (settings['is_server']) {
+            res.end();
+            return;
+        }
+
+        if (!fs.existsSync('data/pconfig.ini')) {
+            res.end();
+            return;
+        }
+        
+        data = fs.readFileSync('data/pconfig.ini', 'utf8');
+
+        res.end(data);
+    });
 
 app.route('/api/getstatus')
     .get(function(req, res, next) {
@@ -866,6 +924,8 @@ app.route('/api/modelupload')
                     console.log('Slicing model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
                 }
 
+
+                getPrinterConfig(pIP);
 
                 // Execute slic3r with the model as an arguement
                 // Register a callback to forward the model to the client
