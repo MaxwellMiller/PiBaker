@@ -2,6 +2,7 @@ var express = require('express'),
     fs = require('fs-extra'),
     bodyParser = require('body-parser'),
     exec = require('child_process').exec,
+    execSync = require('child_process').execSync,
     spawn = require('child_process').spawn,
     ws = require('ws'),
     http = require('http'),
@@ -311,6 +312,10 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
 
     var new_url = s_url + '/api/modelupload';
 
+    if (!s_url.startsWith('http://')) {
+        new_url = 'http://' + new_url;
+    }
+
     statusNum = 2;
 
     request.post({
@@ -387,11 +392,14 @@ function downloadAndProcess(d_url, s_url) {
     });
 }
 
-// Queries the printer at printerIP for its configuration. Returns a filepath if successful
-// or undefined otherwise
-function getPrinterConfig(printerIP) {
+// Queries the printer at printerIP for its configuration. Executes callback with the filename
+// if it was able to retrieve the configuration.
+function getPrinterConfig(printerIP, callback) {
+    if ((printerIP+'').startsWith('http://')) printerIP = printerIP.substring(7);
+
     var hostStr = printerIP;
     var port = 80;
+
 
     if (printerIP.lastIndexOf(":") != -1) {
         hostStr = printerIP.substring(0, printerIP.lastIndexOf(":"));
@@ -420,6 +428,11 @@ function getPrinterConfig(printerIP) {
 
             if (settings['log']) {
                 console.log('Config file ' + tmpdir + file_name + ' downloaded');
+            }
+
+            // If there's a callback, call it with the newly downloaded model
+            if (callback != undefined) {
+                callback(tmpdir + file_name);
             }
         
         });
@@ -925,37 +938,41 @@ app.route('/api/modelupload')
                 }
 
 
-                getPrinterConfig(pIP);
+                getPrinterConfig(pIP, function(configfile) {
 
-                // Execute slic3r with the model as an arguement
-                // Register a callback to forward the model to the client
-                statusNum = 1;
-                exec(settings['slicer_path'] + ' ' + tmpdir + filename + filext,
-                function(error, stdout, stderr) {
+                    // The config should always be defined, but it may be empty
+                    if (configfile != undefined) {
 
-                    // If the process terminated properly, forward
-                    if (error == null) {
+                        statusNum = 1;
 
-                        if (settings['is_server']) {
-                            console.log('Successfully sliced model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
-                        }
+                        exec(settings['slicer_path'] + ' --load ' + configfile + ' ' + tmpdir + filename + filext,
+                        function(error, stdout, stderr) {
 
-                        fs.unlinkSync(filepath);
+                            if (error != null) {
+                                if (settings['log']) {
+                                    console.log('Error slicing uploaded model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
+                                    console.log('Slicing output: \nstdout: ' + stdout + '\nstderr: ' + stderr);
+                                }
 
-                        filepath = tmpdir + filename + '.gcode';
-                        fs.chmodSync(filepath, 0755);
-                        forwardModel(filepath, pIP, 3);
+                                statusNum = 101;
+                                fs.unlinkSync(filepath);
+
+                                return;
+                            }
+
+                            if (settings['log'] && settings['is_server']) {
+                                console.log('Successfully sliced model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
+                            }
+
+                            fs.unlinkSync(filepath);
+
+                            filepath = tmpdir + filename + '.gcode';
+                            fs.chmodSync(filepath, 0755);
+                            forwardModel(filepath, pIP, 3);
+                        });
+
                     }
-                    else {
 
-                        statusNum = 101;
-
-                        if (settings['is_server']) {
-                            console.log('Error slicing uploaded model {target:' + fields.target + ', ip: ' + pIP + ', name: ' + files.model.name + ', renamed: ' + filename + '}');
-                        }
-
-                        fs.unlinkSync(filepath);
-                    }
                 });
 
                 res.end('Your model is uploaded and being sliced.');
@@ -1024,3 +1041,17 @@ if (settings['log']) {
 //         console.log(message);
 //     });
 // });
+
+
+
+
+
+// misc functions
+
+// If there's no startsWith method on the string class, add it
+if (typeof String.prototype.startsWith != 'function') {
+  // see below for better implementation!
+  String.prototype.startsWith = function (str){
+    return this.lastIndexOf(str, 0) === 0;
+  };
+}
