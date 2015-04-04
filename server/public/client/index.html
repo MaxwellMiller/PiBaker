@@ -12,6 +12,12 @@
     </head>
     <title>PiBaker Wireless Print</title>
     <body>
+        <div class="btn-group" style="position: absolute; top: 0px; right: 0px;">
+            <button type="button" class="btn btn-default clear-alert" style="border-top-right-radius: 0px !important; border-top-left-radius: 0px !important; border-bottom-right-radius: 0px !important;"  data-toggle="modal" data-target="#config-modal">
+                <span class="glyphicon glyphicon-cog" aria-hidden="true" style="text-align: right;"></span>&nbsp;Config
+            </button>  
+        </div>
+
         <center>
             <h1>Upload a File to Print:</h1>
             <div id="icontent">
@@ -77,6 +83,45 @@
                         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary" id="print-url-submit">Submit</button>
                     </div>
+
+                </div>
+            </div>
+        </div> 
+
+        <div class="modal fade" id="config-modal" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title">Upload Printer Configuration</h4>
+                    </div>
+
+                    <form id="configupload" action="/api/configupload" method="post" enctype="multipart/form-data">
+
+                        <div class="modal-body">
+
+                                <div class="input-group col-xs-12 col-sm-8 centered">
+                                    <div class="input-group" style="width: 100%">
+                                        <span class="input-group-btn">
+                                            <span class="btn btn-primary btn-file clear-alert">
+                                                Browse: <input type="file" name="configfile" id="configfile"></input>
+                                            </span>
+                                        </span>
+                                        <input type="text" class="form-control" id="config-text-display" readonly></input>
+                                    </div>
+                                </div>
+
+                                <p style="padding-top: 10px;"> Configure Slic3r locally and upload the configuration .ini file here to have models targetted at this printer be sliced with it.</p>
+
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                            <input type="submit" value="Submit" class="btn btn-primary" id="config-submit"></input>
+                        </div>
+
+                    </form>
 
                 </div>
             </div>

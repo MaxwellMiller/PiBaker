@@ -21,6 +21,7 @@ var settings = {
     'printer_name'      : undefined,
     'slicer_path'       : './bin/slic3r/bin/slic3r',
     'interpreter_path'  : './../interpreter/interpreter.py',
+    'config_path'       : 'data/pconfig.ini',
     'port'              : 8080
 }
 
@@ -411,7 +412,7 @@ function kickoffPrint(filename) {
         currentlyPrinting = false;
 
     });
-}   
+}
 
 // Returns a sanitized version of the passed in name
 // if it is invalid and unfixable, return false
@@ -663,6 +664,47 @@ app.route('/api/delprinter')
         res.end("Can't delete a printer that doesn't exist!");
         return;
 
+    });
+
+app.route('/api/configupload')
+    .post(function(req, res, next) {
+        var form = new formidable.IncomingForm();
+        form.uploadDir = tmpdir;
+
+        form.parse(req, function(err, fields, files) {
+
+            if (files == undefined || files.configfile == undefined) {
+                res.status(400);
+                res.end('No file provided');
+                return;
+            }
+
+
+            var filepath = files.configfile.path,
+                filename = files.configfile.path;
+
+            // Currently filename is a full path, remove the path (need to cover windows and unix style paths)
+            if (filename.lastIndexOf('/') != -1) {
+                filename = filename.substring(filename.lastIndexOf('/') + 1);
+            }
+            if (filename.lastIndexOf('\\') != -1) {
+                filename = filename.substring(filename.lastIndexOf('\\') + 1);
+            }
+
+            var filext = getFileExtension(files.configfile.name);
+
+            if (filext != '.ini') {
+                res.status(400);
+                res.end('Invalid filetype (must be ini)');
+            }
+
+            // Assume the configuration was valid (TODO: add verification)
+
+            // Move to the final config path (there can only be one config at a time)
+            fs.renameSync(files.configfile.path, settings['config_path']);
+
+            res.end('Successfully uploaded configuration');
+        });
     });
 
 // Handle uploading posted models, or routing g-code

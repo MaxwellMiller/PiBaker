@@ -1,12 +1,12 @@
 var ipmap = {};
 
 alert_head = '<div class="alert alert-danger alert-dismissible fade in" style="position: absolute; top: 0px; width: 100%; text-align: center; z-index: 2000;" role="alert">' +
-                '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
+                '<button type="button" class="close" data-dismiss="alert" aria-label="Close" onclick="removeCurrentAlert();"><span aria-hidden="true">&times;</span></button>' +
                 '<strong>Error!</strong><span style="padding-left: 5px">'
 alert_foot = '</span></div>'
 
 success_head = '<div class="alert alert-success alert-dismissible fade in" style="position: absolute; top: 0px; width: 100%; text-align: center; z-index: 2000;" role="alert">' +
-                '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
+                '<button type="button" class="close" data-dismiss="alert" aria-label="Close" onclick="removeCurrentAlert();"><span aria-hidden="true">&times;</span></button>' +
                 '<strong>Success!</strong><span style="padding-left: 5px">'
 success_foot = '</span></div>'
 
@@ -45,13 +45,6 @@ $(document).ready(function() {
         clearForm: true
     });
 
-    // When a file is selected, display it in the text box
-    $('.btn-file :file').on('fileselect', function(event, numFiles, label) {
-        var input = $(this).parents('.input-group').find(':text');
-
-        input.val(label);
-    });
-
     // Do some pre-validation before submit is clicked, and prevent the action if there are issues
     $('#print-submit').click(function(e) {
 
@@ -63,6 +56,40 @@ $(document).ready(function() {
         }
 
     });
+
+    // turn the config form into ajax call
+    $('#configupload').ajaxForm({
+        error: function(res, status) {
+            dismissUploadConfigDialog();
+            alertUser(res.status, res.responseText);
+            $('#configupload')[0].reset();
+        },
+        success: function(res, status) {
+            dismissUploadConfigDialog();
+            alertUser(200, res);
+            $('#configupload')[0].reset();
+        },
+        clearForm: true
+    });
+
+    // Do some pre-validation before config-submit is clicked, and prevent the action if there are issues
+    $('#config-submit').click(function(e) {
+
+        if (is_server == true) {
+            alertUser(0, 'How did you click this?!');
+            e.preventDefault();
+            return;
+        }
+
+    });
+
+    // When a file is selected, display it in the text box
+    $('.btn-file :file').on('fileselect', function(event, numFiles, label) {
+        var input = $(this).parents('.input-group').find(':text');
+
+        input.val(label);
+    });
+
 
     $('.clear-alert').click(function(e) {
         removeCurrentAlert();
@@ -159,7 +186,9 @@ function removeCurrentAlert() {
         return;
     }
 
-    current_alert.parentElement.removeChild(current_alert);
+    if (current_alert.parentElement != undefined) {
+        current_alert.parentElement.removeChild(current_alert);
+    }
 }
 
 function setPrinterStatus(status, msg) {
@@ -215,6 +244,11 @@ function dismissEditPrinterDialog() {
 function dismissPrintURLDialog() {
     $('#print-url-modal').modal('hide');
     $('#download-url')[0].value = '';
+}
+
+function dismissUploadConfigDialog() {
+    $('#config-modal').modal('hide');
+    $('#configupload')[0].reset();
 }
 
 function setCurrentPrinter(name) {
