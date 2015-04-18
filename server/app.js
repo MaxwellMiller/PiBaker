@@ -627,7 +627,7 @@ app.route('/api/getstatus')
 
                 // TODO: Verify that this correctly ranks times
                 // If the queried printer's status is newer than ours, use it instead
-                if (queryStatus.time < statusTimeSend) {
+                if (queryStatus.time > statusTimeSend) {
                     statusTextSend = queryStatus.text;
                     statusNumSend = queryStatus.status;
                     statusTimeSend = queryStatus.time;
