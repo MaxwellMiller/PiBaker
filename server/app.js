@@ -12,6 +12,17 @@ var express = require('express'),
     util = require('util');
 
 
+// misc functions
+
+// If there's no startsWith method on the string class, add it
+if (typeof String.prototype.startsWith != 'function') {
+  // see below for better implementation!
+  String.prototype.startsWith = function (str){
+    return this.lastIndexOf(str, 0) === 0;
+  };
+}
+
+
 // Populate with default settings
 // If a config file exists, it will override these
 var settings = {
@@ -40,12 +51,16 @@ var currentlyPrinting = false;
 // The directory where uploaded files will be downloaded to
 var tmpdir = __dirname + '/tmp/';
 
+// Save status of connected printers
+var statusMap = {};
+
 // Current status of the printer
 // 0 -> OK / No status
 // 1 -> Begin slicing
 // 2 -> Sending gcode to the printer
 // 101 -> Error slicing
-var statusNum = 0;
+var statusNum = 0,
+    statusTime = new Date();
 
 // Load the inital printer list
 loadPrinterList();
@@ -151,7 +166,35 @@ if (settings['log']) {
 }
 
 
-var validModelFormats = ['stl', 'obj', 'amf']
+var validModelFormats = ['stl', 'obj', 'amf'];
+
+function setStatus(num) {
+    statusNum = num;
+    statusTime = new Date();
+}
+
+// Update status of all connected printers
+function updateAllStatus() {
+
+    for (var i in connectedPrinters) {
+        updateStatus(connectedPrinters[i]);
+    }
+
+}
+
+function updateStatus(printer) {
+
+    request({
+        url: fixupURL(printer.ip + '/api/getstatus'),
+        json: true
+    }, function (err, resp, body) {
+
+        if (!err && resp.statusCode === 200) {
+            console.log('getstaus resp (' + printer.name + ') ', body) // Print the json response
+        }
+    });
+
+}
 
 // Add http:// to the beginning of the url if needed
 // If it begins with https:// return an undefined url, since secure connections are not supported
@@ -163,7 +206,7 @@ function fixupURL(o_url) {
 
     var new_url = o_url;
 
-    if (new_url.slice(0, 'https://'.length) == 'https://') {
+    if (new_url.startsWith('https://')) {
 
         if (settings['log']) {
             console.log('https url\'s are not supported.');
@@ -172,9 +215,22 @@ function fixupURL(o_url) {
         return undefined;
     }
 
-    if (new_url.slice(0, 'http://'.length) != 'http://') {
+    if (!new_url.startsWith('http://')) {
         new_url = 'http://' + new_url;
     }
+
+    // if (new_url.slice(0, 'https://'.length) == 'https://') {
+
+    //     if (settings['log']) {
+    //         console.log('https url\'s are not supported.');
+    //     }
+
+    //     return undefined;
+    // }
+
+    // if (new_url.slice(0, 'http://'.length) != 'http://') {
+    //     new_url = 'http://' + new_url;
+    // }
 
     return new_url;
 }
@@ -312,11 +368,12 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
 
     var new_url = s_url + '/api/modelupload';
 
+    // TODO: Can I replace with fixupURL?
     if (!s_url.startsWith('http://')) {
         new_url = 'http://' + new_url;
     }
 
-    statusNum = 2;
+    setStatus(2);
 
     request.post({
         url: new_url,
@@ -338,7 +395,7 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
                     console.log('Error sending model to ' + s_url);
                     console.log(err);
 
-                    statusNum = 102
+                    setStatus(102);
                     // fs.unlinkSync(filepath); // TODO: revert eventually
                 }
                 else {
@@ -392,19 +449,34 @@ function downloadAndProcess(d_url, s_url) {
     });
 }
 
+function getPortNumber(url) {
+    var port = 80;
+
+    if (url.lastIndexOf(":") != -1) {
+        port = parseInt(url.substring(url.lastIndexOf(":") + 1));
+    }
+
+    return port;
+}
+
+function getHostName(url) {
+    if ((url+'').startsWith('http://')) url = url.substring(7);
+
+    var hostStr = url;
+
+    if (url.lastIndexOf(":") != -1) {
+        hostStr = url.substring(0, url.lastIndexOf(":"));
+    }
+
+    return hostStr;
+}
+
 // Queries the printer at printerIP for its configuration. Executes callback with the filename
 // if it was able to retrieve the configuration.
 function getPrinterConfig(printerIP, callback) {
-    if ((printerIP+'').startsWith('http://')) printerIP = printerIP.substring(7);
 
-    var hostStr = printerIP;
-    var port = 80;
-
-
-    if (printerIP.lastIndexOf(":") != -1) {
-        hostStr = printerIP.substring(0, printerIP.lastIndexOf(":"));
-        port = parseInt(printerIP.substring(printerIP.lastIndexOf(":") + 1));
-    }
+    var port = getPortNumber(printerIP),
+        hostStr = getHostName(printerIP);
 
     var options = {
         host: hostStr,
@@ -520,13 +592,21 @@ app.route('/api/getconfig')
 
 app.route('/api/getstatus')
     .get(function(req, res, next) {
-        var stext = lookupStatus(statusNum);
+        var statusText = lookupStatus(statusNum);
 
-        if(req.body.pname != undefined) {
-            console.log(req.body.pname);
+        if(req.query.printerName != undefined) {
+            var queryIP = lookupIP(req.query.printerName);
+
+            if (queryIP != undefined) {
+                var queryStatus = queryIP;// TODO: query periodically
+            }
+            else {
+                console.log('Unknown printer identity: ' + req.query.printerName);
+            }
         }
 
-        res.json({status : statusNum, text : stext});
+        // res.end();
+        res.json({status : statusNum, text : statusText, time : statusTime});
     });
 
 // Returns an object with one param: ip, which contains the ip address the request was made from
@@ -943,7 +1023,7 @@ app.route('/api/modelupload')
                     // The config should always be defined, but it may be empty
                     if (configfile != undefined) {
 
-                        statusNum = 1;
+                        setStatus(1);
 
                         exec(settings['slicer_path'] + ' --load ' + configfile + ' ' + tmpdir + filename + filext,
                         function(error, stdout, stderr) {
@@ -954,7 +1034,7 @@ app.route('/api/modelupload')
                                     console.log('Slicing output: \nstdout: ' + stdout + '\nstderr: ' + stderr);
                                 }
 
-                                statusNum = 101;
+                                setStatus(101);
                                 fs.unlinkSync(filepath);
 
                                 return;
@@ -1029,6 +1109,7 @@ app.route('/api/modelupload')
 
 // var server = http.createServer(app);
 // server.listen(8080);
+setInterval(updateAllStatus, 1000);
 app.listen(process.env.PORT || settings['port']);
 
 if (settings['log']) {
@@ -1046,12 +1127,3 @@ if (settings['log']) {
 
 
 
-// misc functions
-
-// If there's no startsWith method on the string class, add it
-if (typeof String.prototype.startsWith != 'function') {
-  // see below for better implementation!
-  String.prototype.startsWith = function (str){
-    return this.lastIndexOf(str, 0) === 0;
-  };
-}

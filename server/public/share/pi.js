@@ -11,6 +11,7 @@ success_head = '<div class="alert alert-success alert-dismissible fade in" style
 success_foot = '</span></div>'
 
 is_server = false;
+skipUpdateCount = 0;
 
 // If there is an alert displayed, keep track of it so that we can avoid
 // multiple existing at the same time
@@ -164,7 +165,16 @@ $(document).ready(function() {
     }
 });
 
-function updatePrinterStatus() {
+
+// Takes in a status (number) and message, and sets it as the 
+// status. If undefined, requests status from the server
+function updatePrinterStatus(status, msg) {
+
+    if (status != undefined) {
+        setPrinterStatus(status, msg);
+        return;
+    }
+
     var pName = $('#print-target')[0].value;
 
     if (pName != undefined) {
@@ -193,6 +203,11 @@ function removeCurrentAlert() {
 
 function setPrinterStatus(status, msg) {
 
+    if (skipUpdateCount > 0) {
+        --skipUpdateCount;
+        return;
+    }
+
     if (status < 100) {
         $('#serverStatus').css({'color':'green'});
     }
@@ -207,23 +222,28 @@ function setPrinterStatus(status, msg) {
 // If you want to call it without an http status use 0 for 'Error' and 200 for 'Success'
 function alertUser(status, msg) {
 
-    removeCurrentAlert();
+    // Don't perform the next automatic setPrinterStatusUpdate, so the user
+    // can actually see what's going on
+    setPrinterStatus(status == 200 ? 0 : status, msg);
+    skipUpdateCount = 2;
 
-    var html = '';
+    // removeCurrentAlert();
 
-    if(status == 200) {
-        html += success_head + msg + success_foot;
-    }
-    else {
-        html += alert_head + msg + alert_foot;
-    }
+    // var html = '';
 
-    var element = document.createElement('div');
-    element.innerHTML = html;
+    // if(status == 200) {
+    //     html += success_head + msg + success_foot;
+    // }
+    // else {
+    //     html += alert_head + msg + alert_foot;
+    // }
 
-    document.body.appendChild(element);
+    // var element = document.createElement('div');
+    // element.innerHTML = html;
 
-    current_alert = element;
+    // document.body.appendChild(element);
+
+    // current_alert = element;
 }
 
 // Remove the Add Printer dialog and clear data
