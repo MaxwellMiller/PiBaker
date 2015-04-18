@@ -58,7 +58,11 @@ var statusMap = {};
 // 0 -> OK / No status
 // 1 -> Begin slicing
 // 2 -> Sending gcode to the printer
+// 3 -> Printing has started
+// 4 -> Done Printing
 // 101 -> Error slicing
+// 102 -> Error forwarding gcode to printer
+// 103 -> Error connecting to printer
 var statusNum = 0,
     statusTime = new Date();
 
@@ -177,21 +181,27 @@ function setStatus(num) {
 function updateAllStatus() {
 
     for (var i in connectedPrinters) {
-        updateStatus(connectedPrinters[i]);
+        updateStatus(connectedPrinters[i].name);
     }
 
 }
 
-function updateStatus(printer) {
+function updateStatus(printerName) {
 
     request({
-        url: fixupURL(printer.ip + '/api/getstatus'),
+        url: fixupURL(lookupIP(printerName) + '/api/getstatus'),
         json: true
     }, function (err, resp, body) {
 
         if (!err && resp.statusCode === 200) {
-            console.log('getstaus resp (' + printer.name + ') ', body) // Print the json response
+            statusMap[printerName] = {status: body.status, text : body.text, time : new Date(body.time)};
         }
+        // Couldn't connect to the printer
+        else {
+            statusMap[printerName] = {status : 103, text : lookupStatus(103), time : new Date()}
+        }
+
+        // console.log(printer.name, statusMap[printer.name]);
     });
 
 }
@@ -523,6 +533,7 @@ function kickoffPrint(filename) {
     }
 
     currentlyPrinting = true;
+    setStatus(3);
 
     exec('python ' + settings['interpreter_path'] + ' ' + filename, {maxBuffer: 1000*1024} , function(error, stdout, stderr) {
         
@@ -534,7 +545,7 @@ function kickoffPrint(filename) {
         }
 
         currentlyPrinting = false;
-
+        setStatus(4);
     });
 }
 
@@ -562,8 +573,11 @@ function lookupStatus(number) {
         case 0: return "Okay";
         case 1: return "Model is being sliced";
         case 2: return "Sending gcode to printer";
+        case 3: return "Printing has started";
+        case 4: return "Done printing";
         case 101: return "Error slicing uploaded model";
         case 102: return "Error forwarding gcode to printer";
+        case 103: return "Error connecting to printer";
         default: 
             console.log('Unknown Status: ' + number)
             return "";
@@ -590,23 +604,45 @@ app.route('/api/getconfig')
         res.end(data);
     });
 
+// Gets the current status if no printer name sent
+// Otherwise gets the most recent status between this device and printer
 app.route('/api/getstatus')
     .get(function(req, res, next) {
-        var statusText = lookupStatus(statusNum);
 
+        // Current status on this device
+        var statusTextSend = lookupStatus(statusNum),
+            statusNumSend = statusNum,
+            statusTimeSend = statusTime;
+
+        // Status on device targeted
         if(req.query.printerName != undefined) {
-            var queryIP = lookupIP(req.query.printerName);
 
-            if (queryIP != undefined) {
-                var queryStatus = queryIP;// TODO: query periodically
+            var queryStatus = statusMap[req.query.printerName];
+
+            if (queryStatus != undefined) {
+
+                // console.log('status compare ' + req.query.printerName);
+                // console.log('on server: ', statusTime);
+                // console.log('on printer: ', queryStatus.time);
+
+                // TODO: Verify that this correctly ranks times
+                // If the queried printer's status is newer than ours, use it instead
+                if (queryStatus.time < statusTimeSend) {
+                    statusTextSend = queryStatus.text;
+                    statusNumSend = queryStatus.status;
+                    statusTimeSend = queryStatus.time;
+                }
+                // Otherwise don't do anything
             }
+            // Could not find known status for target printer
+            // Tell it to refresh and just send back our status
             else {
-                console.log('Unknown printer identity: ' + req.query.printerName);
+                updateStatus(req.query.printerName);
             }
         }
 
         // res.end();
-        res.json({status : statusNum, text : statusText, time : statusTime});
+        res.json({status : statusNumSend, text : statusTextSend, time : statusTimeSend});
     });
 
 // Returns an object with one param: ip, which contains the ip address the request was made from
@@ -746,12 +782,16 @@ app.route('/api/editprinter')
             return;
         }
 
-        // Check to see if this printer conflicts with any printers already registered
+        // Find the printer whos record needs to be changed
         for (var i in connectedPrinters) {
             if (connectedPrinters[i].name == opName) {
 
                 connectedPrinters[i].name = npName;
                 connectedPrinters[i].ip = pIP;
+
+                // Switch the entries in the status map
+                statusMap[npName] = statusMap[opName];
+                delete statusMap[opName];
 
                 writeConnectedPrinters();
 
@@ -765,7 +805,7 @@ app.route('/api/editprinter')
 
         }
 
-        // We should only get here if a printer that didn't exist were trying to be edited
+        // We should only get here if a printer that didn't exist was trying to be edited
         res.status(400);
         res.end("Can't edit a printer that doesn't exist!");
         return;
