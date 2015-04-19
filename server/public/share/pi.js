@@ -161,9 +161,9 @@ $(document).ready(function() {
 
 
     // Update status of the current printer at regular intervals (if server)
-    if (is_server) {
+    // if (is_server) {
         setInterval(updatePrinterStatus, 1000);
-    }
+    // }
 });
 
 
@@ -177,11 +177,31 @@ function updatePrinterStatus(status, msg) {
     }
     else if (!updatingStatus) {
 
-        var pName = $('#print-target')[0].value;
+        var pName;
+        if ($('#print-target')[0] != undefined)
+            pName = $('#print-target')[0].value;
 
+        // Query server for status
+        updatingStatus = true;
+
+        // If this is a server and there is a printer selected, let the server
+        // know, so it can give that printer's status as well
         if (pName != undefined) {
-            updatingStatus = true;
             $.get('/api/getstatus', {printerName: pName})
+                .complete(function(data) {
+                    if (data.responseText != undefined) {
+                        var obj = $.parseJSON(data.responseText);
+
+                        setPrinterStatus(obj.status, obj.text);
+                    }
+
+                    updatingStatus = false;
+                });
+        }
+        // Otherwise just query the server
+        else {
+            updatingStatus = true;
+            $.get('/api/getstatus')
                 .complete(function(data) {
                     if (data.responseText != undefined) {
                         var obj = $.parseJSON(data.responseText);

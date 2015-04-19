@@ -47,6 +47,8 @@ var downloadNumber = 0;
 
 // Is there a print job goin on right now? If there is, make sure no new jobs are accepted.
 var currentlyPrinting = false;
+// Mutex for controlling connectedPrinter file writing
+writingConnectedPrinters = false;
 
 // The directory where uploaded files will be downloaded to
 var tmpdir = __dirname + '/tmp/';
@@ -307,8 +309,12 @@ function loadPrinterList() {
 }
 
 // Write the connectedPrinters array to disk
-// TODO: Do I need to create a lock to ensure the file isn't written multiple times at the same time?
 function writeConnectedPrinters() {
+
+    if (writingConnectedPrinters) return;
+
+    // Disallow multiple writes at the same time
+    writingConnectedPrinters = true;
 
     var toWrite = '';
 
@@ -316,7 +322,9 @@ function writeConnectedPrinters() {
         toWrite += connectedPrinters[i].name + ' ' + connectedPrinters[i].ip + '\n';
     }
 
-    fs.writeFile('data/printers', toWrite);
+    fs.writeFileSync('data/printers', toWrite);
+
+    writingConnectedPrinters = false;
 }
 
 // Given a printer name, return the corresponding IP address, or undefined if it is not registered
@@ -376,12 +384,13 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
 
     }
 
-    var new_url = s_url + '/api/modelupload';
+    var new_url = fixupURL(s_url + '/api/modelupload');
 
     // TODO: Can I replace with fixupURL?
-    if (!s_url.startsWith('http://')) {
-        new_url = 'http://' + new_url;
-    }
+
+    // if (!s_url.startsWith('http://')) {
+    //     new_url = 'http://' + new_url;
+    // }
 
     setStatus(2);
 
@@ -406,7 +415,7 @@ function forwardModel(filepath, s_url, retryAttempts, optionalFormData) {
                     console.log(err);
 
                     setStatus(102);
-                    // fs.unlinkSync(filepath); // TODO: revert eventually
+                    fs.unlinkSync(filepath); // TODO: revert eventually
                 }
                 else {
                     forwardModel(filepath, s_url, retryAttempts - 1);
@@ -568,6 +577,7 @@ function validateAndSanitizePrinterName(name) {
     return name;
 }
 
+// Convert statusNum into statusText
 function lookupStatus(number) {
     switch(number) {
         case 0: return "Okay";
@@ -585,6 +595,8 @@ function lookupStatus(number) {
 
 }
 
+// If this is a printer and has a slic3r configuration on it,
+// emit the config file, otherwise emit nothing
 app.route('/api/getconfig')
     .get(function(req, res, next) {
 
@@ -594,6 +606,7 @@ app.route('/api/getconfig')
             return;
         }
 
+        // If the config file does not exist, don't send anything
         if (!fs.existsSync('data/pconfig.ini')) {
             res.end();
             return;
@@ -1024,11 +1037,6 @@ app.route('/api/modelupload')
             // Give the file its original extension, if we've determined it's safe
             fs.renameSync(files.model.path, tmpdir + filename + filext);
             filepath = tmpdir + filename + filext;
-
-            // TODO: This process is not necessarilly fast. It may take longer
-            // than the timeout period for the http response. Current idea: open
-            // a websocket with the client here, register a callback for when the slicing
-            // process finishes to send the result (success/failure) to the client
 
             // If the file is an unsliced 3D model, try to slice it
             if (typeCheck == 1) {
