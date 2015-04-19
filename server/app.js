@@ -621,11 +621,6 @@ app.route('/api/getstatus')
 
             if (queryStatus != undefined) {
 
-                // console.log('status compare ' + req.query.printerName);
-                // console.log('on server: ', statusTime);
-                // console.log('on printer: ', queryStatus.time);
-
-                // TODO: Verify that this correctly ranks times
                 // If the queried printer's status is newer than ours, use it instead
                 if (queryStatus.time > statusTimeSend) {
                     statusTextSend = queryStatus.text;
@@ -641,8 +636,8 @@ app.route('/api/getstatus')
             }
         }
 
-        // res.end();
         res.json({status : statusNumSend, text : statusTextSend, time : statusTimeSend});
+        res.end();
     });
 
 // Returns an object with one param: ip, which contains the ip address the request was made from

@@ -12,6 +12,7 @@ success_foot = '</span></div>'
 
 is_server = false;
 skipUpdateCount = 0;
+updatingStatus = false;
 
 // If there is an alert displayed, keep track of it so that we can avoid
 // multiple existing at the same time
@@ -174,19 +175,25 @@ function updatePrinterStatus(status, msg) {
         setPrinterStatus(status, msg);
         return;
     }
+    else if (!updatingStatus) {
 
-    var pName = $('#print-target')[0].value;
+        var pName = $('#print-target')[0].value;
 
-    if (pName != undefined) {
-        $.get('/api/getstatus', {printerName: pName})
-            .complete(function(data) {
-                if (data.responseText != undefined) {
-                    var obj = $.parseJSON(data.responseText);
+        if (pName != undefined) {
+            updatingStatus = true;
+            $.get('/api/getstatus', {printerName: pName})
+                .complete(function(data) {
+                    if (data.responseText != undefined) {
+                        var obj = $.parseJSON(data.responseText);
 
-                    setPrinterStatus(obj.status, obj.text);
-                }
-            });
+                        setPrinterStatus(obj.status, obj.text);
+                    }
+
+                    updatingStatus = false;
+                });
+        }
     }
+
 }
 
 // If there's an alert being shown, remove it.
