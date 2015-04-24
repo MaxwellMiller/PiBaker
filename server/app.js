@@ -543,7 +543,12 @@ function kickoffPrint(filename) {
     currentlyPrinting = true;
     setStatus(3);
 
-    exec('python ' + settings['interpreter_path'] + ' ' + filename, {maxBuffer: 1000*1024} , function(error, stdout, stderr) {
+    exec('sudo python ' + settings['interpreter_path'] + ' ' + filename, {maxBuffer: 1000*1024} , function(error, stdout, stderr) {
+        
+        console.log('stdout');
+        console.log(stdout);
+        console.log('stderr');
+        console.log(stderr);
         
         if (error != '') {
             console.log('Printing completed');
