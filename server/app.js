@@ -543,24 +543,27 @@ function kickoffPrint(filename) {
     currentlyPrinting = true;
     setStatus(3);
 
-    exec('sudo python ' + settings['interpreter_path'] + ' ' + filename, {maxBuffer: 1000*1024} , function(error, stdout, stderr) {
+    // TODO: Just to bypass interpreter when not running on printer
+    setStatus(4);
+    
+    // exec('sudo python ' + settings['interpreter_path'] + ' ' + filename, {maxBuffer: 1000*1024} , function(error, stdout, stderr) {
         
-        console.log('stdout');
-        console.log(stdout);
-        console.log('stderr');
-        console.log(stderr);
+    //     console.log('stdout');
+    //     console.log(stdout);
+    //     console.log('stderr');
+    //     console.log(stderr);
 
-        if (error != '') {
-            console.log('Printing completed');
-            console.log(stdout);
-        }
-        else {
-            console.log('Error invoking interpreter');
-        }
+    //     if (error != '') {
+    //         console.log('Printing completed');
+    //         console.log(stdout);
+    //     }
+    //     else {
+    //         console.log('Error invoking interpreter');
+    //     }
 
-        currentlyPrinting = false;
-        setStatus(4);
-    });
+    //     currentlyPrinting = false;
+    //     setStatus(4);
+    // });
 }
 
 // Returns a sanitized version of the passed in name
