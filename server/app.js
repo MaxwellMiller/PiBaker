@@ -4,7 +4,6 @@ var express = require('express'),
     exec = require('child_process').exec,
     execSync = require('child_process').execSync,
     spawn = require('child_process').spawn,
-    ws = require('ws'),
     http = require('http'),
     request = require('request'),
     formidable = require('formidable'),
@@ -1138,35 +1137,16 @@ app.route('/api/modelupload')
             return;
         });
 
-
-        // if (settings["is_server"]) {
-        //     socket = new ws(clientip);
-        //     socket.on('open', function(){
-        //         socket.send("I AM MESSAGE");
-        //     });
-        // }
-
         // res.redirect('back');
         // return();
     });
 
-// var server = http.createServer(app);
-// server.listen(8080);
 setInterval(updateAllStatus, 1000);
 app.listen(process.env.PORT || settings['port']);
 
 if (settings['log']) {
     console.log('Listening on port ' + settings['port']);
 }
-
-// var wss = new ws.Server({server: server});
-// wss.on('connection', function(ws) {
-//     ws.on('message', function(message) {
-//         console.log(message);
-//     });
-// });
-
-
 
 
 
