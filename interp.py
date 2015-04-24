@@ -1,10 +1,12 @@
 # Note: Will need the Python Module PLY from http://www.dabeaz.com/ply/ to run correctly
-
-# import RPi.GPIO as GPIO
+import sys, traceback
+import RPi.GPIO as GPIO
 # import tokenize
 import ply.lex as lex
 # set up BCM GPIO numbering
-# GPIO.setmode(GPIO.BCM)
+GPIO.setmode(GPIO.BCM)
+
+import configVars as Vars
 
 '''
 if GPIO.RPI_REVISION == 3:
@@ -214,37 +216,426 @@ def p_gCommand_gWord(p):
                 | COMMENT'''
 
     if (p[1] == 'G1') | (p[1] == 'G0'):
+        if len(p) == 4:
+            print("G1 - MOVE ", p[2], p[3])
+	    
+	    if p[2] == 'F':
+		Vars.feedrate = p[3]
+		
+	    if p[2] == 'X':
+		motors[0].move(p[3], pos.x)
+    	   	pos.updateX(p[3]) 
+	    if p[2] == 'Y':
+		motors[1].move(p[3], pos.y)
+	   	pos.updateY(p[3])
+	    if p[2] == 'Z':
+		motors[2].move(p[3], pos.z)
+	   	pos.updateZ(p[3])
+		print("updated z to new pos!: ", pos.z)
+	    if p[2] == 'E':
+		motors[3].move(p[3], pos.e)
+	  	pos.updateE(p[3]) 
+            print("Singular Command -- Current position", pos.x, pos.y, pos.z)
+#	    GPIO.cleanup()
+
         if len(p) == 6:
+      	    
             print("G1 - MOVE ", p[2], p[3], p[4], p[5])
+            test = [p[2], p[3], p[4], p[5]]
+	    
+	    order = threader.organizeParams(test)
+	    
+	    if order[0] != None:
+	    	t1 = threading.Thread(target=motors[0].move, args=(order[0], pos.x))
+	    	t1.setDaemon(True) #DThread to hold main?
+		pos.updateX(order[0])  
+	    if order[1] != None:
+	    	t2 = threading.Thread(target=motors[1].move, args=(order[1], pos.y))
+	    	t2.setDaemon(True)
+		pos.updateY(order[1]) 
+	    if order[2] != None:
+		t3 = threading.Thread(target=motors[2].move, args=(order[2], pos.z))
+		t3.setDaemon(True)
+		pos.updateZ(order[2])
+	    if order[3] != None:
+		t4 = threading.Thread(target=motors[3].move, args=(order[3], pos.e))
+		t4.setDaemon(True)
+		pos.updateE(order[3])
+	    if order[4] != None:
+		Vars.feedrate = order[4]
+
+	    try:
+	    	t1.start()
+	    except:  pass
+	    
+	    try:
+	    	t2.start()
+
+	    except:  pass
+
+	    try:
+		t3.start()
+
+	    except:  pass
+	    
+	    try:
+		t4.start()
+
+	    except:  pass
+		
+	    try:
+	    	t1.join()
+	    except:  pass
+	    
+	    try:
+	    	t2.join()
+	    except:  pass
+
+	    try:
+		t3.join()
+	    except:  pass
+	    
+	    try:
+		t4.join()
+	    except:  pass
+#	    GPIO.cleanup()
+           
+	    order = threader.zeroOut(order)
+	    
+        print("Current position", pos.x, pos.y, pos.z)
+	   
         if len(p) == 8:
             print("G1 - MOVE ", p[2], p[3], p[4], p[5], p[6], p[7])
+	
+            test = [p[2], p[3], p[4], p[5], p[6], p[7]]
+	    order = threader.organizeParams(test)
+	    
+	    if order[0] != None:
+	    	t1 = threading.Thread(target=motors[0].move, args=(order[0], pos.x))
+	    	t1.setDaemon(True) #DThread to hold main?
+		pos.updateX(order[0])	
+	    if order[1] != None:
+	    	t2 = threading.Thread(target=motors[1].move, args=(order[1], pos.y))
+	    	t2.setDaemon(True)
+		pos.updateY(order[1])
+	    if order[2] != None:
+			t3 = threading.Thread(target=motors[2].move, args=(order[2], pos.z))
+			t3.setDaemon(True)
+			pos.updateZ(order[2])
+	    if order[3] != None:
+			t4 = threading.Thread(target=motors[3].move, args=(order[3], pos.e))
+			t4.setDaemon(True)
+			pos.updateE(order[3])
+	    if order[4] != None:
+			Vars.feedrate = order[4]
+
+	    try:
+	    	t1.start()
+	    except:  pass
+	    
+	    try:
+	    	t2.start()
+	    except:  pass
+
+	    try:
+		t3.start()
+	    except:  pass
+	    
+	    try:
+		t4.start()
+	    except:  pass
+		
+	    try:
+	    	t1.join()
+	    except:  pass
+	    
+	    try:
+	    	t2.join()
+	    except:  pass
+
+	    try:
+		t3.join()
+	    except:  pass
+	    
+	    try:
+		t4.join()
+	    except:  pass
+	    
+#	    GPIO.cleanup()
+           
+	    order = threader.zeroOut(order)
+	    # pos.update(order[0],order[1],order[2])
+            print("Current position", pos.x, pos.y, pos.z)
+
         if len(p) == 10:
             print("G1 - MOVE ", p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9])
+	
+            test = [p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]]
+	    order = threader.organizeParams(test)
+	    
+	    if order[0] != None:
+	    	t1 = threading.Thread(target=motors[0].move, args=(order[0], pos.x))
+	    	t1.setDaemon(True) #DThread to hold main?
+		pos.updateX(order[0])	
+	    if order[1] != None:
+	    	t2 = threading.Thread(target=motors[1].move, args=(order[1], pos.y))
+	    	t2.setDaemon(True)
+		pos.updateY(order[1])
+	    if order[2] != None:
+		t3 = threading.Thread(target=motors[2].move, args=(order[2], pos.z))
+		t3.setDaemon(True)
+		pos.updateZ(order[2])
+	    if order[3] != None:
+		t4 = threading.Thread(target=motors[3].move, args=(order[3], pos.e))
+		t4.setDaemon(True)
+	    	pos.updateE(order[3])
+	    if order[4] != None:
+		Vars.feedrate = order[4]
+
+	    try:
+	    	t1.start()
+	    except: pass
+	    
+	    try:
+	    	t2.start()
+	    except: pass
+
+	    try:
+		t3.start()
+	    except: pass
+	    
+	    try:
+		t4.start()
+	    except: pass
+		
+	    try:
+	    	t1.join()
+	    except: pass
+	    
+	    try:
+	    	t2.join()
+	    except: pass
+
+	    try:
+		t3.join()
+	    except: pass
+	    
+	    try:
+		t4.join()
+	    except: pass
+	    
+#	    GPIO.cleanup()
+           
+	    order = threader.zeroOut(order)
+	    pos.update(order[0],order[1],order[2])
+            print("Current position", pos.x, pos.y, pos.z)
+
         if len(p) == 12:
             print("G1 - MOVE ", p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11])
-        if len(p) == 14:
+	       
+            test = [p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11]]
+	    order = threader.organizeParams(test)
+	    
+	    if order[0] != None:
+	    	t1 = threading.Thread(target=motors[0].move, args=(order[0], pos.x))
+	    	t1.setDaemon(True) #DThread to hold main?
+		pos.updateX(order[0])
+	    if order[1] != None:
+	    	t2 = threading.Thread(target=motors[1].move, args=(order[1], pos.y))
+	    	t2.setDaemon(True)
+		pos.updateY(order[1])
+	    if order[2] != None:
+		t3 = threading.Thread(target=motors[2].move, args=(order[2], pos.z))
+		t3.setDaemon(True)
+		pos.updateZ(order[2])
+	    if order[3] != None:
+		t4 = threading.Thread(target=motors[3].move, args=(order[3], pos.e))
+		t4.setDaemon(True)
+		pos.updateE(order[3])
+	    
+	    if order[4] != None:
+		Vars.feedrate = order[4]
+
+	    try:
+	    	t1.start()
+	    except: pass
+	    
+	    try:
+	    	t2.start()
+	    except: pass
+
+	    try:
+		t3.start()
+	    except: pass
+	    
+	    try:
+		t4.start()
+	    except: pass
+		
+	    try:
+	    	t1.join()
+	    except: pass
+	    
+	    try:
+	    	t2.join()
+	    except: pass
+
+	    try:
+		t3.join()
+	    except: pass
+	    
+	    try:
+		t4.join()
+	    except: pass
+	    
+#	    GPIO.cleanup()
+           
+	    order = threader.zeroOut(order)
+	    # pos.update(order[0],order[1],order[2])
+            print("Current position", pos.x, pos.y, pos.z)
+
+	if len(p) == 14:
             print("G1 - MOVE ", p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11],
                   p[12], p[13])
+	    	
+            test = [p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13]]
+	    order = threader.organizeParams(test)
+	    
+	    if order[0] != None:
+	    	t1 = threading.Thread(target=motors[0].move, args=(order[0], pos.x))
+	    	t1.setDaemon(True) #DThread to hold main?
+		pos.updateX(order[0])	
+	    if order[1] != None:
+	    	t2 = threading.Thread(target=motors[1].move, args=(order[1], pos.y))
+	    	t2.setDaemon(True)
+		pos.updateY(order[1])
+	    if order[2] != None:
+		t3 = threading.Thread(target=motors[2].move, args=(order[2], pos.z))
+		t3.setDaemon(True)
+		pos.updateZ(order[2])
+	    if order[3] != None:
+		t4 = threading.Thread(target=motors[3].move, args=(order[3], pos.e))
+		t4.setDaemon(True)
+		pos.updateE(order[3])
+	    
+	    if order[4] != None:
+		Vars.feedrate = order[4]
+
+	    try:
+	    	t1.start()
+	    except: pass
+	    
+	    try:
+	    	t2.start()
+	    except: pass
+
+	    try:
+		t3.start()
+	    except: pass
+	    
+	    try:
+		t4.start()
+	    except: pass
+		
+	    try:
+	    	t1.join()
+	    except: pass
+	    
+	    try:
+	    	t2.join()
+	    except: pass
+
+	    try:
+		t3.join()
+	    except: pass
+	    
+	    try:
+		t4.join()
+	    except: pass
+	    
+#	    GPIO.cleanup()
+           
+	    order = threader.zeroOut(order)
+	    # pos.update(order[0],order[1],order[2])
+            print("Current position", pos.x, pos.y, pos.z)
 
     if p[1] == 'G4':
         if p[2] == 'P':
-            print("G4 - DWELL - Milliseconds: ",  p[3])
+            # print("G4 - DWELL - Milliseconds: ",  p[3])
+	    mili = p[3]/1000
+	    sleep(mili) 
         if p[2] == 'S':
-            print ("G4 - DWELL - Seconds: ", p[3])
+            # print ("G4 - DWELL - Seconds: ", p[3])
+	    sleep(p[3])
 
     if p[1] == 'G28':
         print("G28- MOVE TO ORIGIN, capture doesnt matter for RepRep")
+	returnHome.returnHome(motors) # Needs direct testing with serial switch
+	
 
     if p[1] == 'G92':
         # A G92 without coordinates will reset all axes to zero.
         if len(p) == 2:
             print("G92 -SET POSITION, no params everything to 0")
+	    pos.update(0, 0, 0)
         if len(p) == 4:
             print("G92 -SET POSITION, one gWord param", p[2], p[3])
+            if p[2] == 'X':
+                pos.updateX(p[3])
+            if p[2] == 'Y':
+	        pos.updateY(p[3])
+	    if p[2] == 'Z':
+		pos.updateZ(p[3])
+	    if p[2] == 'E':
+				pos.updateE(p[3])
+			
         if len(p) == 6:
             print("G92 -SET POSITION, 2 gWord param", p[2], p[3], p[4], p[5])
+            if p[2] == 'X':
+                pos.updateX(p[3])
+            if p[2] == 'Y':
+                pos.updateY(p[3])
+            if p[2] == 'Z':
+                pos.updateZ(p[3])
+            if p[2] == 'E':
+                pos.updateE(p[3])
+		
+            if p[4] == 'X':
+                pos.updateX(p[5])
+            if p[4] == 'Y':
+                pos.updateY(p[5])
+            if p[4] == 'Z':
+                pos.updateZ(p[5])
+            if p[4] == 'E':
+				pos.updateE(p[5])
         if len(p) == 8:
             print("G92 -SET POSITION, 3 gWord param", p[2], p[3], p[4], p[5], p[6], p[7])
+            if p[2] == 'X':
+                pos.updateX(p[3])
+            if p[2] == 'Y':
+                pos.updateY(p[3])
+            if p[2] == 'Z':
+                pos.updateZ(p[3])
+            if p[2] == 'E':
+                pos.updateE(p[3])
+			
+            if p[4] == 'X':
+                pos.updateX(p[5])
+            if p[4] == 'Y':
+                pos.updateY(p[5])
+            if p[4] == 'Z':
+                pos.updateZ(p[5])
+            if p[4] == 'E':
+                pos.updateE(p[5])
+			
+            if p[6] == 'X':
+                pos.updateX(p[7])
+            if p[6] == 'Y':
+                pos.updateY(p[7])
+            if p[6] == 'Z':
+                pos.updateZ(p[7])
+            if p[6] == 'E':
+                pos.updateE(p[7])
 
     if p[1] == 'M85':
         if p[2] == 'P':
@@ -257,24 +648,31 @@ def p_gCommand_gWord(p):
 
     if p[1] == 'M104':
         print("M104 Set Temp to: ", p[3])
+	Vars.targetTemp = p[3]
 
     if p[1] == 'M106':
         print("M106 FAN ON to: ", p[3])
+	Vars.fanRate = p[3]
 
     if p[1] == 'M109':
         print("M109 set temp to : ", p[3], " and WAIT")
+	Vars.targetTemp = p[3]
+	while Vars.curTemp < Vars.targetTemp:
+		print Vars.curTemp
+		time.sleep(2)
 
-    if p[1] == 'M140':
+    if p[1] == 'M140':	# PrintrBot Simple does not come standard with BedTemp -- Stretch Goal?
         if len(p) == 4:
             print("M140 Bed Temp to : ", p[3])
         if len(p) == 6:
             print("M140 Bed Temp to : ", p[3]," and R:", p[5])
 
-    if p[1] == 'M190':
+    if p[1] == 'M190':	# Again - Stretch Goal?
         print("M190 Waiting for Bed Temp of: ", p[3])
 
     if p[1] == 'M200':
         print("M200 Set Filament Diameter to ", p[3])
+	Vars.filamentDiameter = p[3]
 
     # TODO parse out to the 3 specific commands but they are current;y all captured
     if (p[1] == "M201") | (p[1] == "M202") | (p[1] == "M203"):
@@ -423,6 +821,7 @@ def p_gWord_LetNum(p):
     if p[1] == 'G':
         if p[2] == 21:
             print("This is set to Millimeters")
+	    Vars.milimeterMode = True
         if p[2] == 29:
             print("Detailed Z Probe")
         if p[2] == 90:
@@ -464,21 +863,46 @@ def p_error(t):
     print("Syntax error at '%s'" % t.value)
 
 
-import ply.yacc as yacc
-parser = yacc.yacc()
 
-'''f = open('lexTest.g', 'r')
-for lin in f:
-    s1= lin
-    lex.input(s1)
-    for tok in lexer:
-        print tok'''
+import sys		# to read in cmd args
+import threading	# run concurrent motors
+import threader		# really more of a 'parser' -- needs a rename
+import time
+import returnHome
+import heating
+ 
+from printHead import PrintHead
+pos = PrintHead()
+print("Initial Printer Position ", pos.x, pos.y, pos.z)
 
-import sys
+from motor import motor
+motors = [None]*4
+motors[0] = motor("x", Vars.xDIR, Vars.xSTEP, Vars.xMaxFeedrate, Vars.xSteps)
+motors[1] = motor("y", Vars.yDIR, Vars.ySTEP, Vars.yMaxFeedrate, Vars.ySteps)
+motors[2] = motor("z", Vars.zDIR, Vars.zSTEP, Vars.zMaxFeedrate, Vars.zSteps)
+motors[3] = motor("e", Vars.eDIR, Vars.eSTEP, Vars.eMaxFeedrate, Vars.eSteps, 1)
 
-f = open(sys.argv[1], 'r')
+try:
+	temperature = threading.Thread(name='temp', target=heating.run)
+	temperature.setDaemon(True)
+	temperature.start()
 
-for line in f:
-    s = line
-    # print(s)
-    parser.parse(s)
+
+	import ply.yacc as yacc
+	parser = yacc.yacc()
+
+	f = open(sys.argv[1], 'r')
+	num = 0
+
+	for line in f:
+	    s = line
+	    # print(s)
+	    parser.parse(s)
+	    print num
+	    num = num +1
+except KeyboardInterrupt:
+	print "keyboard interruption"
+except: 
+	traceback.print_exc(file=sys.stdout)
+finally:
+	GPIO.cleanup()

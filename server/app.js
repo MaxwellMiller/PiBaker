@@ -31,7 +31,7 @@ var settings = {
     'slicing_server'    : undefined,
     'printer_name'      : undefined,
     'slicer_path'       : './bin/slic3r/bin/slic3r',
-    'interpreter_path'  : './../interpreter/interpreter.py',
+    'interpreter_path'  : './../interp.py',
     'config_path'       : 'data/pconfig.ini',
     'port'              : 8080
 }

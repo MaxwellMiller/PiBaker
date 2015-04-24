@@ -5,7 +5,7 @@ var dirs = ['server/tmp', 'server/data'];
 
 // Filenames -> Content to write
 var files = {
-	'server/data/config' : 'is_server false\nlocked false\nlog true\nslicer_path /bin/slic3r/bin/slic3r\nport 8080'
+	'server/data/config' : 'is_server false\nlocked false\nlog true\nslicer_path /bin/slic3r/bin/slic3r\nport 8080\ninterpreter_path ./../interp.py'
 }
 
 var clean = false;
