@@ -546,6 +546,7 @@ function kickoffPrint(filename) {
     exec('python ' + settings['interpreter_path'] + ' ' + filename, {maxBuffer: 1000*1024} , function(error, stdout, stderr) {
         
         if (error != '') {
+            console.log('Printing completed');
             console.log(stdout);
         }
         else {
