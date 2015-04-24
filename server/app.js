@@ -31,7 +31,7 @@ var settings = {
     'slicing_server'    : undefined,
     'printer_name'      : undefined,
     'slicer_path'       : './bin/slic3r/bin/slic3r',
-    'interpreter_path'  : './../interp.py',
+    'interpreter_path'  : './interp.py',
     'config_path'       : 'data/pconfig.ini',
     'port'              : 8080
 }
@@ -549,7 +549,7 @@ function kickoffPrint(filename) {
         console.log(stdout);
         console.log('stderr');
         console.log(stderr);
-        
+
         if (error != '') {
             console.log('Printing completed');
             console.log(stdout);
